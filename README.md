@@ -1,2 +1,9 @@
-# lc
-Load Control for beam
+lc
+=====
+
+load control app
+
+Build
+-----
+
+    $ make
