@@ -13,7 +13,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%--------------------------------------------------------------------
--module(lc_SUITE).
+-module(load_ctl_SUITE).
 
 -compile(export_all).
 
@@ -150,7 +150,7 @@ lc_flagman_noop(_Config) ->
   %%?check_trace(#{timetrap => 1000})
   Pid = spawn(?MODULE, worker_parent, [NProc]),
   timer:sleep(timer:seconds(10)),
-  ?assert(not lc:is_overloaded()),
+  ?assert(not load_ctl:is_overloaded()),
   exit(Pid, kill),
   ok.
 
@@ -161,10 +161,10 @@ lc_flagman_flag_onoff(_Config) ->
                begin
                  Ppid = spawn(?MODULE, worker_parent, [NProc * 10, {?MODULE, busy_loop, []}]),
                  timer:sleep(timer:seconds(10)),
-                 Check1 = lc:is_overloaded(),
+                 Check1 = load_ctl:is_overloaded(),
                  exit(Ppid, kill),
                  timer:sleep(timer:seconds(10)),
-                 Check2 = lc:is_overloaded(),
+                 Check2 = load_ctl:is_overloaded(),
                  {Check1, Check2}
                end,
                fun(Result, Trace) ->
@@ -181,15 +181,15 @@ lc_flagman_flag_onoff(_Config) ->
 lc_flagman_recover(_Config) ->
   application:ensure_all_started(lc),
   NProc = erlang:system_info(schedulers_online),
-  ok = lc:put_config(#{?RUNQ_MON_F2 =>  0.0}),
+  ok = load_ctl:put_config(#{?RUNQ_MON_F2 =>  0.0}),
   ?check_trace(#{timetrap => 30000},
                begin
                  Ppid = spawn(?MODULE, worker_parent, [NProc * 10, {?MODULE, busy_loop, []}]),
                  timer:sleep(timer:seconds(10)),
-                 Check1 = lc:is_overloaded(),
+                 Check1 = load_ctl:is_overloaded(),
                  exit(Ppid, kill),
                  timer:sleep(timer:seconds(10)),
-                 Check2 = lc:is_overloaded(),
+                 Check2 = load_ctl:is_overloaded(),
                  {Check1, Check2}
                end,
                fun(Result, Trace) ->
@@ -203,7 +203,7 @@ lc_flagman_recover(_Config) ->
 lc_control_pg(_Config) ->
   application:ensure_all_started(lc),
   NProc = erlang:system_info(schedulers_online),
-  ok = lc:put_config(#{ ?RUNQ_MON_F2 =>  0.8
+  ok = load_ctl:put_config(#{ ?RUNQ_MON_F2 =>  0.8
                       , ?RUNQ_MON_F3 => 2
                       }),
   ?check_trace(#{timetrap => 30000},
@@ -213,10 +213,10 @@ lc_control_pg(_Config) ->
                  P2pid = spawn(?MODULE, worker_parent, [1, {?MODULE, priority_loop, [2]}]),
                  P3pid = spawn(?MODULE, worker_parent, [1, {?MODULE, priority_loop, [3]}]),
                  timer:sleep(timer:seconds(10)),
-                 Check1 = lc:is_overloaded(),
+                 Check1 = load_ctl:is_overloaded(),
                  exit(BusyPid, kill),
                  timer:sleep(timer:seconds(10)),
-                 Check2 = lc:is_overloaded(),
+                 Check2 = load_ctl:is_overloaded(),
                  Check3 = is_process_alive(P1pid),
                  Check4 = is_process_alive(P2pid),
                  Check5 = is_process_alive(P3pid),
@@ -235,18 +235,18 @@ lc_control_pg(_Config) ->
 lc_flagman_start_stop(_Config) ->
   application:ensure_all_started(lc),
   wait_for_runq_flagman(_Retry = 10),
-  ?assert(is_pid(lc:whereis_runq_flagman())),
-  ok = lc:stop_runq_flagman(10000),
-  ?assertEqual(undefined, lc:whereis_runq_flagman()),
-  {ok, Pid} = lc:restart_runq_flagman(),
-  ?assertEqual(Pid, lc:whereis_runq_flagman()),
+  ?assert(is_pid(load_ctl:whereis_runq_flagman())),
+  ok = load_ctl:stop_runq_flagman(10000),
+  ?assertEqual(undefined, load_ctl:whereis_runq_flagman()),
+  {ok, Pid} = load_ctl:restart_runq_flagman(),
+  ?assertEqual(Pid, load_ctl:whereis_runq_flagman()),
   ok.
 
 lc_flagman_flagoff_after_stop(_Config) ->
   lc_flagman_recover(_Config),
-  ?assert(lc:is_overloaded()),
-  lc:stop_runq_flagman(10000),
-  ?assert(not lc:is_overloaded()),
+  ?assert(load_ctl:is_overloaded()),
+  load_ctl:stop_runq_flagman(10000),
+  ?assert(not load_ctl:is_overloaded()),
   ok.
 
 %% internal helper
@@ -260,7 +260,7 @@ busy_loop() ->
   busy_loop().
 
 priority_loop(P) ->
-  ok = lc:join(P),
+  ok = load_ctl:join(P),
   receive
     stop -> ok;
     Other ->
@@ -270,7 +270,7 @@ priority_loop(P) ->
 wait_for_runq_flagman(0) ->
   ct:fail(flagman_not_up);
 wait_for_runq_flagman(Retry) ->
-  case lc:whereis_runq_flagman() of
+  case load_ctl:whereis_runq_flagman() of
     undefined ->
       timer:sleep(50),
       wait_for_runq_flagman(Retry - 1);

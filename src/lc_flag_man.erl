@@ -15,6 +15,11 @@
 %%--------------------------------------------------------------------
 
 -module(lc_flag_man).
+
+-ignore_xref([ start_link/0
+             , init/0
+             ]).
+
 -export([ start_link/0
         , init/0
         , flag_man_loop/1
@@ -95,7 +100,7 @@ config_get(Name, ConfigTerm, Default) when is_map(ConfigTerm) ->
   maps:get(Name, ConfigTerm, Default).
 
 configs() ->
-  lc:get_config().
+  load_ctl:get_config().
 
 kill_priority_groups(Threshold) when is_integer(Threshold) ->
   ?tp(debug, lc_flagman, #{event => kill_priority_groups}),

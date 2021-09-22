@@ -50,8 +50,8 @@ whereis_runq_flagman() ->
 
 -spec stop_runq_flagman(timer:timeout()) -> ok | {error, timeout}.
 stop_runq_flagman(Timeout)->
-  Old = lc:get_config(),
-  ok = lc:put_config(Old#{?RUNQ_MON_F0 => false}),
+  Old = load_ctl:get_config(),
+  ok = load_ctl:put_config(Old#{?RUNQ_MON_F0 => false}),
   case whereis_runq_flagman() of
     undefined -> ok;
     Pid when is_pid(Pid) ->

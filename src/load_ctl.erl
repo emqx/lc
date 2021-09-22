@@ -14,7 +14,16 @@
 %% limitations under the License.
 %%--------------------------------------------------------------------
 
--module(lc).
+-module(load_ctl).
+
+-ignore_xref([ is_overloaded/0
+             , join/1
+             , leave/1
+             , whereis_runq_flagman/0
+             , stop_runq_flagman/0
+             , stop_runq_flagman/1
+             , restart_runq_flagman/0
+             ]).
 
 -include("lc.hrl").
 
