@@ -234,6 +234,7 @@ lc_control_pg(_Config) ->
 
 lc_flagman_start_stop(_Config) ->
   application:ensure_all_started(lc),
+  wait_for_runq_flagman(_Retry = 10),
   ?assert(is_pid(lc:whereis_runq_flagman())),
   ok = lc:stop_runq_flagman(10000),
   ?assertEqual(undefined, lc:whereis_runq_flagman()),
@@ -264,6 +265,17 @@ priority_loop(P) ->
     stop -> ok;
     Other ->
       ct:pal("recv ~p", [Other])
+  end.
+
+wait_for_runq_flagman(0) ->
+  ct:fail(flagman_not_up);
+wait_for_runq_flagman(Retry) ->
+  case lc:whereis_runq_flagman() of
+    undefined ->
+      timer:sleep(50),
+      wait_for_runq_flagman(Retry - 1);
+    Pid ->
+      Pid
   end.
 
 %%%_* Emacs ====================================================================
