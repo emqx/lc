@@ -57,12 +57,12 @@ maydelay(Timeout) ->
 
 %% process is put into a process priority group
 %% process will be killed if system is overloaded when priority is under threshold
--spec join(integer()) -> ok.
+-spec join(non_neg_integer()) -> ok.
 join(Priority) ->
   ok = pg:join(?LC_SCOPE, {?LC_GROUP, Priority}, self()).
 
 %% Leave process priority group, the number of leaves should match the number of join
--spec leave(integer()) -> ok.
+-spec leave(non_neg_integer()) -> ok.
 leave(Priority) ->
   ok = pg:leave(?LC_SCOPE, {?LC_GROUP, Priority}, self()).
 
@@ -73,15 +73,19 @@ put_config(Config) when is_map(Config) ->
 put_config(_) ->
   {error, badarg}.
 
+-spec stop_runq_flagman() -> ok.
 stop_runq_flagman() ->
   lc_sup:stop_runq_flagman(infinity).
 
+-spec stop_runq_flagman(timer:timeout()) -> ok | {error, timeout}.
 stop_runq_flagman(Timeout) ->
   lc_sup:stop_runq_flagman(Timeout).
 
+-spec whereis_runq_flagman() -> pid() | undefined.
 whereis_runq_flagman() ->
   lc_sup:whereis_runq_flagman().
 
+-spec restart_runq_flagman() -> {ok, pid} | {error, running | restarting}.
 restart_runq_flagman() ->
   lc_sup:restart_runq_flagman().
 

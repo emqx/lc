@@ -58,6 +58,7 @@ stop_runq_flagman(Timeout)->
       load_ctl:accompany(Pid, Timeout)
   end.
 
+-spec restart_runq_flagman() -> {ok, pid()} | {error, running | restarting}.
 restart_runq_flagman() ->
   supervisor:restart_child(?MODULE, ?flagman_runq).
 
