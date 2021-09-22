@@ -44,8 +44,8 @@ start_link() ->
 %%                  modules => modules()}   % optional
 init([]) ->
   SupFlags = #{strategy => one_for_one,
-               intensity => 0,
-               period => 1},
+               intensity => 10,
+               period => 3},
   ChildSpecs = [#{ id => lc_runq_flag_man
                  , start => {lc_flag_man, start_link, []}
                  , restart => transient
