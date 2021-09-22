@@ -43,6 +43,7 @@ flag_man_loop(#{ current_credit := CurrentCredit, sample := LastSample} = State)
   RunQLen = erlang:statistics(total_run_queue_lengths),
   ScheduleCount = erlang:system_info(schedulers_online),
   Conf = configs(),
+  F0 = config_get(?RUNQ_MON_F0, Conf, ?RUNQ_MON_F0_DEFAULT),
   F1 = config_get(?RUNQ_MON_F1, Conf, ?RUNQ_MON_F1_DEFAULT),
   F2 = config_get(?RUNQ_MON_F2, Conf, ?RUNQ_MON_F2_DEFAULT),
   F3 = config_get(?RUNQ_MON_F3, Conf, ?RUNQ_MON_F3_DEFAULT),
@@ -51,6 +52,8 @@ flag_man_loop(#{ current_credit := CurrentCredit, sample := LastSample} = State)
   T2 = config_get(?RUNQ_MON_T2, Conf, ?RUNQ_MON_T2_DEFAULT),
   C1 = config_get(?RUNQ_MON_C1, Conf, ?RUNQ_MON_C1_DEFAULT),
 
+  %% when I should dead
+  F0 =/= true andalso exit(normal),
   {NewCredit, SleepMs}
     = case RunQLen > ScheduleCount * F1 of
         true when CurrentCredit == 1 ->
@@ -88,13 +91,11 @@ flag_man_loop(#{ current_credit := CurrentCredit, sample := LastSample} = State)
   NewState = State#{current_credit => NewCredit, sample => scheduler:sample()},
   ?MODULE:flag_man_loop(NewState).
 
-config_get(_Name, undefined, Default) ->
-  Default;
 config_get(Name, ConfigTerm, Default) when is_map(ConfigTerm) ->
   maps:get(Name, ConfigTerm, Default).
 
 configs() ->
-  persistent_term:get(?FLAG_MAN_CONFIGS_TERM, undefined).
+  lc:get_config().
 
 kill_priority_groups(Threshold) when is_integer(Threshold) ->
   ?tp(debug, lc_flagman, #{event => kill_priority_groups}),

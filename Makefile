@@ -14,11 +14,14 @@
 #%% limitations under the License.
 #%%--------------------------------------------------------------------
 
-.PHONY: all test
+.PHONY: all co test dialyzer xref
 
 default: all
 
 all: test dialyzer
+
+co:
+	rebar3 compile
 
 test:
 	rebar3 ct

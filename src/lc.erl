@@ -21,6 +21,10 @@
 -export([ is_overloaded/0
         , join/1
         , leave/1
+        , whereis_runq_flagman/0
+        , stop_runq_flagman/0
+        , stop_runq_flagman/1
+        , restart_runq_flagman/0
         , put_config/1
         , get_config/0
         ]).
@@ -48,13 +52,42 @@ put_config(Config) when is_map(Config) ->
 put_config(_) ->
   {error, badarg}.
 
--spec get_config() -> map() | undefined.
+stop_runq_flagman() ->
+  lc_sup:stop_runq_flagman(infinity).
+
+stop_runq_flagman(Timeout) ->
+  lc_sup:stop_runq_flagman(Timeout).
+
+whereis_runq_flagman() ->
+  lc_sup:whereis_runq_flagman().
+
+restart_runq_flagman() ->
+  lc_sup:restart_runq_flagman().
+
+-spec get_config() -> map().
 get_config() ->
-  persistent_term:get(?FLAG_MAN_CONFIGS_TERM, undefined).
+  case persistent_term:get(?FLAG_MAN_CONFIGS_TERM, undefined) of
+    undefined ->
+      %% return defaults
+      #{ ?RUNQ_MON_F0 => ?RUNQ_MON_F0_DEFAULT
+       , ?RUNQ_MON_F1 => ?RUNQ_MON_F1_DEFAULT
+       , ?RUNQ_MON_F2 => ?RUNQ_MON_F2_DEFAULT
+       , ?RUNQ_MON_F3 => ?RUNQ_MON_F3_DEFAULT
+       , ?RUNQ_MON_F4 => ?RUNQ_MON_F4_DEFAULT
+       , ?RUNQ_MON_T1 => ?RUNQ_MON_T1_DEFAULT
+       , ?RUNQ_MON_T2 => ?RUNQ_MON_T2_DEFAULT
+       , ?RUNQ_MON_C1 => ?RUNQ_MON_C1_DEFAULT
+       };
+    Other ->
+      Other
+  end.
 
 filter_config(Config) ->
-  maps:with([ ?RUNQ_MON_F1
+  maps:with([ ?RUNQ_MON_F0
+            , ?RUNQ_MON_F1
             , ?RUNQ_MON_F2
+            , ?RUNQ_MON_F3
+            , ?RUNQ_MON_F4
             , ?RUNQ_MON_T1
             , ?RUNQ_MON_T2
             , ?RUNQ_MON_C1

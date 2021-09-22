@@ -124,6 +124,8 @@ all() ->
   , lc_flagman_flag_onoff
   , lc_flagman_recover
   , lc_control_pg
+  , lc_flagman_flagoff_after_stop
+  , lc_flagman_start_stop
   ].
 
 %%--------------------------------------------------------------------
@@ -230,6 +232,22 @@ lc_control_pg(_Config) ->
                                         ])
                end).
 
+lc_flagman_start_stop(_Config) ->
+  application:ensure_all_started(lc),
+  ?assert(is_pid(lc:whereis_runq_flagman())),
+  ok = lc:stop_runq_flagman(10000),
+  ?assertEqual(undefined, lc:whereis_runq_flagman()),
+  {ok, Pid} = lc:restart_runq_flagman(),
+  ?assertEqual(Pid, lc:whereis_runq_flagman()),
+  ok.
+
+lc_flagman_flagoff_after_stop(_Config) ->
+  lc_flagman_recover(_Config),
+  ?assert(lc:is_overloaded()),
+  lc:stop_runq_flagman(10000),
+  ?assert(not lc:is_overloaded()),
+  ok.
+
 %% internal helper
 worker_parent(N, {M, F, A}) ->
   lists:foreach(fun(_) ->
@@ -245,7 +263,7 @@ priority_loop(P) ->
   receive
     stop -> ok;
     Other ->
-       ct:pal("recv ~p", [Other])
+      ct:pal("recv ~p", [Other])
   end.
 
 %%%_* Emacs ====================================================================

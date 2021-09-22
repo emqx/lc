@@ -26,6 +26,10 @@
 %% configs
 -define(FLAG_MAN_CONFIGS_TERM, '_lc_flagman_configs_').
 
+%% enable flag
+-define(RUNQ_MON_F0, run_queue_f0).
+-define(RUNQ_MON_F0_DEFAULT, true).
+
 %% overload multipler
 -define(RUNQ_MON_F1, run_queue_f1).
 -define(RUNQ_MON_F1_DEFAULT, 8).

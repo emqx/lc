@@ -22,7 +22,11 @@
 
 -behaviour(supervisor).
 
--export([start_link/0]).
+-export([ start_link/0
+        , stop_runq_flagman/1
+        , restart_runq_flagman/0
+        , whereis_runq_flagman/0
+        ]).
 
 -export([init/1]).
 
@@ -30,8 +34,38 @@
 
 -define(SERVER, ?MODULE).
 
+-define(flagman_runq, flagman_runq).
+
 start_link() ->
   supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+
+-spec whereis_runq_flagman() -> undefined | pid().
+whereis_runq_flagman() ->
+  case lists:keyfind(?flagman_runq, 1, supervisor:which_children(?MODULE)) of
+    {_, Pid, _, _} when is_pid(Pid)->
+      Pid;
+    _ ->
+      undefined
+  end.
+
+-spec stop_runq_flagman(timer:timeout()) -> ok | {error, timeout}.
+stop_runq_flagman(Timeout)->
+  Old = lc:get_config(),
+  ok = lc:put_config(Old#{?RUNQ_MON_F0 => false}),
+  case whereis_runq_flagman() of
+    undefined -> ok;
+    Pid when is_pid(Pid) ->
+      Mref = erlang:monitor(process, Pid),
+      receive
+        {'DOWN', Mref, process, Pid, _Info} -> ok
+      after Timeout ->
+          erlang:demonitor(Mref, [flush]),
+          {error, timeout}
+      end
+  end.
+
+restart_runq_flagman() ->
+  supervisor:restart_child(?MODULE, ?flagman_runq).
 
 %% sup_flags() = #{strategy => strategy(),         % optional
 %%                 intensity => non_neg_integer(), % optional
@@ -46,7 +80,7 @@ init([]) ->
   SupFlags = #{strategy => one_for_one,
                intensity => 10,
                period => 3},
-  ChildSpecs = [#{ id => lc_runq_flag_man
+  ChildSpecs = [#{ id => ?flagman_runq
                  , start => {lc_flag_man, start_link, []}
                  , restart => transient
                  , type => worker
