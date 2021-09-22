@@ -127,6 +127,7 @@ all() ->
   , lc_flagman_recover
   , lc_control_pg
   , lc_flagman_flagoff_after_stop
+  , lc_maydely_1
   , lc_flagman_start_stop
   ].
 
@@ -151,7 +152,7 @@ lc_flagman_noop(_Config) ->
   NProc = erlang:system_info(schedulers_online),
   ?check_trace(#{timetrap => 30000},
                begin
-                 Pid = spawn(?MODULE, worker_parent, [NProc]),
+                 Pid = spawn(?MODULE, worker_parent, [NProc, {?MODULE, busy_loop, []}]),
                  timer:sleep(timer:seconds(10)),
                  ?assert(not load_ctl:is_overloaded()),
                  exit(Pid, kill),
@@ -266,6 +267,16 @@ lc_flagman_flagoff_after_stop(Config) ->
   load_ctl:stop_runq_flagman(10000),
   ?assert(not load_ctl:is_overloaded()),
   ok.
+
+lc_maydely_1(Config) ->
+  lc_flagman_recover(Config),
+  StartTS = os:timestamp(),
+  ?assertEqual(timeout, load_ctl:maydelay(2000)),
+  ?assert(timer:now_diff(os:timestamp(), StartTS) < 2010000),
+  exit(whereis(?RUNQ_MON_FLAG_NAME), kill),
+  StartTS2 = os:timestamp(),
+  ?assertEqual(ok, load_ctl:maydelay(1000)),
+  ?assert(timer:now_diff(os:timestamp(), StartTS2) < 50000).
 
 %% internal helper
 worker_parent(N, {M, F, A}) ->

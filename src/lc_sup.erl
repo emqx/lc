@@ -55,13 +55,7 @@ stop_runq_flagman(Timeout)->
   case whereis_runq_flagman() of
     undefined -> ok;
     Pid when is_pid(Pid) ->
-      Mref = erlang:monitor(process, Pid),
-      receive
-        {'DOWN', Mref, process, Pid, _Info} -> ok
-      after Timeout ->
-          erlang:demonitor(Mref, [flush]),
-          {error, timeout}
-      end
+      load_ctl:accompany(Pid, Timeout)
   end.
 
 restart_runq_flagman() ->

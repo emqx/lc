@@ -58,12 +58,12 @@ flag_man_loop(#{ current_credit := CurrentCredit, sample := LastSample} = State)
   C1 = config_get(?RUNQ_MON_C1, Conf, ?RUNQ_MON_C1_DEFAULT),
 
   %% when I should dead
-  F0 =/= true andalso exit(normal),
+  F0 =/= true andalso begin remove_flag(), exit(normal) end,
   {NewCredit, SleepMs}
     = case RunQLen > ScheduleCount * F1 of
         true when CurrentCredit == 1 ->
           %% overloaded, raise flag
-          catch register(?RUNQ_MON_FLAG_NAME, self()),
+          raise_flag(),
           kill_priority_groups(F3),
           ?tp(debug, lc_flagman, #{event => flag_on}),
           {0, T1 + T2};
@@ -74,7 +74,7 @@ flag_man_loop(#{ current_credit := CurrentCredit, sample := LastSample} = State)
           {CurrentCredit - 1, T2};
         false when CurrentCredit == (C1 - 1) ->
           %% cool down, remove flag
-          catch unregister(?RUNQ_MON_FLAG_NAME),
+          remove_flag(),
           ?tp(debug, lc_flagman, #{event => flag_off}),
           {C1, T1};
         false when CurrentCredit < C1 ->
@@ -111,6 +111,35 @@ kill_priority_groups(Threshold) when is_integer(Threshold) ->
           pg:get_local_members(?LC_SCOPE, {?LC_GROUP, P})
          )
     end,  lists:seq(0, Threshold)).
+
+%% Have a dummy process to register the flag name
+%% so that other process could monitor it and get monitor
+%% signal when the flag is removed.
+-spec raise_flag() -> Flag :: pid().
+raise_flag() ->
+  Owner = self(),
+  case whereis(?RUNQ_MON_FLAG_NAME) of
+    undefined ->
+      spawn_link(fun() ->
+                     register(?RUNQ_MON_FLAG_NAME, self()),
+                     MRef = erlang:monitor(process, Owner),
+                     receive
+                       stop -> ok;
+                       {'DOWN', MRef, process, _, _} -> ok
+                     end
+                 end);
+    Pid ->
+      Pid
+  end.
+
+-spec remove_flag() -> ok.
+remove_flag() ->
+  case whereis(?RUNQ_MON_FLAG_NAME) of
+    undefined -> ok;
+    Pid when is_pid(Pid)
+             -> Pid ! stop
+  end,
+  ok.
 
 %%%_* Emacs ====================================================================
 %%% Local Variables:

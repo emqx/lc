@@ -1,9 +1,15 @@
-lc
-=====
+# lc
 
 load control app
 
-Build
------
+# dependencies
+1. OTP 23+
+1. rebar3
 
-    $ make
+# Build
+
+``` sh
+$ make
+```
+
+

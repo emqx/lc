@@ -17,6 +17,7 @@
 -module(load_ctl).
 
 -ignore_xref([ is_overloaded/0
+             , maydelay/1
              , join/1
              , leave/1
              , whereis_runq_flagman/0
@@ -28,6 +29,8 @@
 -include("lc.hrl").
 
 -export([ is_overloaded/0
+        , maydelay/1
+        , accompany/2
         , join/1
         , leave/1
         , whereis_runq_flagman/0
@@ -42,6 +45,15 @@
 -spec is_overloaded() -> boolean().
 is_overloaded() ->
   not (undefined =:= whereis(?RUNQ_MON_FLAG_NAME)).
+
+-spec maydelay(timer:timeout()) -> ok | timeout.
+maydelay(Timeout) ->
+  case accompany(?RUNQ_MON_FLAG_NAME, Timeout) of
+    ok ->
+      ok;
+    {error, timeout} ->
+      timeout
+  end.
 
 %% process is put into a process priority group
 %% process will be killed if system is overloaded when priority is under threshold
@@ -101,6 +113,16 @@ filter_config(Config) ->
             , ?RUNQ_MON_T2
             , ?RUNQ_MON_C1
             ], Config).
+
+-spec accompany(atom() | pid(), timer:timeout()) -> ok | {error, timeout}.
+accompany(Target, Timeout) ->
+  Mref = erlang:monitor(process, Target),
+  receive
+    {'DOWN', Mref, process, _Object, _Info} -> ok
+  after Timeout ->
+      erlang:demonitor(Mref, [flush]),
+      {error, timeout}
+  end.
 
 %%%_* Emacs ====================================================================
 %%% Local Variables:
