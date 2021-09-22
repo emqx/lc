@@ -67,15 +67,6 @@ stop_runq_flagman(Timeout)->
 restart_runq_flagman() ->
   supervisor:restart_child(?MODULE, ?flagman_runq).
 
-%% sup_flags() = #{strategy => strategy(),         % optional
-%%                 intensity => non_neg_integer(), % optional
-%%                 period => pos_integer()}        % optional
-%% child_spec() = #{id => child_id(),       % mandatory
-%%                  start => mfargs(),      % mandatory
-%%                  restart => restart(),   % optional
-%%                  shutdown => shutdown(), % optional
-%%                  type => worker(),       % optional
-%%                  modules => modules()}   % optional
 init([]) ->
   SupFlags = #{strategy => one_for_one,
                intensity => 10,

@@ -16,6 +16,7 @@
 -module(load_ctl_SUITE).
 
 -compile(export_all).
+-compile(nowarn_export_all).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -79,7 +80,6 @@ end_per_group(_GroupName, _Config) ->
 %% @end
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
-  application:stop(lc),
   Config.
 
 %%--------------------------------------------------------------------
@@ -91,6 +91,8 @@ init_per_testcase(_TestCase, Config) ->
 %% @end
 %%--------------------------------------------------------------------
 end_per_testcase(_TestCase, _Config) ->
+  persistent_term:erase(?FLAG_MAN_CONFIGS_TERM),
+  application:stop(lc),
   ok.
 
 %%--------------------------------------------------------------------
@@ -147,23 +149,33 @@ lc_app_stop(_Config) ->
 lc_flagman_noop(_Config) ->
   application:ensure_all_started(lc),
   NProc = erlang:system_info(schedulers_online),
-  %%?check_trace(#{timetrap => 1000})
-  Pid = spawn(?MODULE, worker_parent, [NProc]),
-  timer:sleep(timer:seconds(10)),
-  ?assert(not load_ctl:is_overloaded()),
-  exit(Pid, kill),
-  ok.
+  ?check_trace(#{timetrap => 30000},
+               begin
+                 Pid = spawn(?MODULE, worker_parent, [NProc]),
+                 timer:sleep(timer:seconds(10)),
+                 ?assert(not load_ctl:is_overloaded()),
+                 exit(Pid, kill),
+                 ok
+               end,
+               fun(_, Trace) ->
+                   ?projection_complete(event, ?of_kind(lc_flagman, Trace),
+                                        [noop])
+               end).
 
 lc_flagman_flag_onoff(_Config) ->
   application:ensure_all_started(lc),
+  ok = load_ctl:put_config(#{ ?RUNQ_MON_T1 => 1000
+                            , ?RUNQ_MON_T2 => 500
+                            , ?RUNQ_MON_C1 => 3
+                      }),
   NProc = erlang:system_info(schedulers_online),
   ?check_trace(#{timetrap => 30000},
                begin
                  Ppid = spawn(?MODULE, worker_parent, [NProc * 10, {?MODULE, busy_loop, []}]),
-                 timer:sleep(timer:seconds(10)),
+                 timer:sleep(timer:seconds(5)),
                  Check1 = load_ctl:is_overloaded(),
                  exit(Ppid, kill),
-                 timer:sleep(timer:seconds(10)),
+                 timer:sleep(timer:seconds(5)),
                  Check2 = load_ctl:is_overloaded(),
                  {Check1, Check2}
                end,
@@ -181,14 +193,18 @@ lc_flagman_flag_onoff(_Config) ->
 lc_flagman_recover(_Config) ->
   application:ensure_all_started(lc),
   NProc = erlang:system_info(schedulers_online),
-  ok = load_ctl:put_config(#{?RUNQ_MON_F2 =>  0.0}),
+  ok = load_ctl:put_config(#{ ?RUNQ_MON_T1 => 500
+                            , ?RUNQ_MON_T2 => 200
+                            , ?RUNQ_MON_C1 => 2
+                            , ?RUNQ_MON_F2 => 0.0
+                            }),
   ?check_trace(#{timetrap => 30000},
                begin
                  Ppid = spawn(?MODULE, worker_parent, [NProc * 10, {?MODULE, busy_loop, []}]),
-                 timer:sleep(timer:seconds(10)),
+                 timer:sleep(timer:seconds(5)),
                  Check1 = load_ctl:is_overloaded(),
                  exit(Ppid, kill),
-                 timer:sleep(timer:seconds(10)),
+                 timer:sleep(timer:seconds(5)),
                  Check2 = load_ctl:is_overloaded(),
                  {Check1, Check2}
                end,
@@ -203,8 +219,10 @@ lc_flagman_recover(_Config) ->
 lc_control_pg(_Config) ->
   application:ensure_all_started(lc),
   NProc = erlang:system_info(schedulers_online),
-  ok = load_ctl:put_config(#{ ?RUNQ_MON_F2 =>  0.8
-                      , ?RUNQ_MON_F3 => 2
+  ok = load_ctl:put_config(#{ ?RUNQ_MON_T1 => 500
+                            , ?RUNQ_MON_T2 => 200
+                            , ?RUNQ_MON_F2 =>  0.8
+                            , ?RUNQ_MON_F3 => 2
                       }),
   ?check_trace(#{timetrap => 30000},
                begin
@@ -212,10 +230,10 @@ lc_control_pg(_Config) ->
                  P1pid = spawn(?MODULE, worker_parent, [1, {?MODULE, priority_loop, [1]}]),
                  P2pid = spawn(?MODULE, worker_parent, [1, {?MODULE, priority_loop, [2]}]),
                  P3pid = spawn(?MODULE, worker_parent, [1, {?MODULE, priority_loop, [3]}]),
-                 timer:sleep(timer:seconds(10)),
+                 timer:sleep(timer:seconds(5)),
                  Check1 = load_ctl:is_overloaded(),
                  exit(BusyPid, kill),
-                 timer:sleep(timer:seconds(10)),
+                 timer:sleep(timer:seconds(5)),
                  Check2 = load_ctl:is_overloaded(),
                  Check3 = is_process_alive(P1pid),
                  Check4 = is_process_alive(P2pid),
@@ -242,8 +260,8 @@ lc_flagman_start_stop(_Config) ->
   ?assertEqual(Pid, load_ctl:whereis_runq_flagman()),
   ok.
 
-lc_flagman_flagoff_after_stop(_Config) ->
-  lc_flagman_recover(_Config),
+lc_flagman_flagoff_after_stop(Config) ->
+  lc_flagman_recover(Config),
   ?assert(load_ctl:is_overloaded()),
   load_ctl:stop_runq_flagman(10000),
   ?assert(not load_ctl:is_overloaded()),

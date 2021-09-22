@@ -14,20 +14,23 @@
 #%% limitations under the License.
 #%%--------------------------------------------------------------------
 
-.PHONY: all co test dialyzer xref
+.PHONY: all co test dialyzer xref static_checks
 
 default: all
 
-all: test dialyzer
+all: test static_checks
 
 co:
 	rebar3 compile
 
 test:
-	rebar3 ct
+	rebar3 do compile, ct
+
+static_checks:
+	rebar3 do dialyzer, xref
 
 dialyzer:
-	rebar3 do dialyzer
+	rebar3 dialyzer
 
 xref:
 	rebar3 xref
