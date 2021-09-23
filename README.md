@@ -80,7 +80,7 @@ load_ctl:put_config(Config::map()) -> ok | {error, badarg}.
 ```
 
 for config keys in the `Config` map refer to 
-[DOC Internals](./docs/internals.org)
+[DOC Internals](./docs/internals.md)
 
 # Dependencies
 1. OTP 23+

@@ -1,51 +1,54 @@
-#+TITLE: Statemachine
+#+TITLE: internals
 
 * flagman
 ** Overall
-=flagman= is a long-living, supervised process which only monitors the system [[runq]] and ensures [[actions]] are taken when conditions are met.
+*flagman* is a long-living, supervised process which only monitors the system [[runq][runq]] and ensures [[actions][actions]] are taken when conditions are met.
 
 By design, the process runs as high priority and avoids communicating with other processes.
 
 ** Terminology
-| Term               | Definition                                                                                                             |
-|--------------------+------------------------------------------------------------------------------------------------------------------------|
-| <<runq>>           | The length of beam system run_queue, checked periodly, see [[T1]] and [[T2]].                                                  |
-| <<scheduler>>      | Number of *Online* schedulers.                                                                                         |
-| <<credits>>        | Gain credits when [[runq]] is under limit, loose credits when [[runq]] is over limit.                                          |
-| <<priority group>> | Process could join/leave prioriy groups. Load contol takes different actions when conditions are meet.                 |
-| <<overloaded>>     | State when [[credits]] runs out. System is overloaded and action must be taken.                                            |
-| <<warm>>           | State when system is loosing/gaining [[credits]], a middle state preventing system is shifting between [[cold]] and [[overloaded]] |
-| <<cold>>           | State when system is full of [[credits]]                                                                                   |
-| <<flag>>           | Regisered process name when system is [[overloaded]]                                                                       |
-| <<actions>>        | Actions to take to cool down the system. Action is taken by either flagman or API caller                               |
+| Term                             | Definition                                                                                                             |
+|----------------------------------+------------------------------------------------------------------------------------------------------------------------|
+| Runq<<runq>>                     | The length of beam system run_queue, checked periodly, see [[T1][T1]] and [[T2][T2]].                                                  |
+| Scheduler<<scheduler>>           | Number of *Online* schedulers.                                                                                         |
+| Credits<<credits>>               | Gain credits when [[runq][runq]] is under limit, loose credits when [[runq][runq]] is over limit.                                          |
+| Priority Group<<pgroup>>         | Process could join/leave prioriy groups. Load contol takes different actions when conditions are meet.                 |
+| Overloaded<<overloaded>>         | State when [[credits][credits]] runs out. System is overloaded and action must be taken.                                            |
+| Warm<<warm>>                     | State when system is loosing/gaining [[credits][credits]], a middle state preventing system is shifting between [[cold][cold]] and [[overloaded][overloaded]] |
+| Cold<<cold>>                     | State when system is full of [[credits][credits]]                                                                                   |
+| Flag<<flag>>                     | Regisered process name when system is [[overloaded][overloaded]]                                                                       |
+| Actions<<actions>>               | Actions to take to cool down the system. Action is taken by either flagman or API caller                               |
 
 
-** [[Actions]] to take:
+** [[actions][Actions]] to take:
 
-*** Control the [[flag]]
-- ensure the [[flag]] is rasied when system is <<overloaded>>.
-- ensure the [[flag]] is cleared when system is cold
+*** Control the [[flag][flag]]
+- ensure the [[flag][flag]] is rasied when system is <<overloaded>>.
+- ensure the [[flag][flag]] is cleared when system is cold
 
-*** Brutal kill processes in low (<= [[F3]]) [[priority group]] in either of any conditions listed below
-1. [[flag]] is rasied
-2. [[credits]] left percentage blow [[F4]]
+*** Brutal kill processes in low (<= [[F3][F3]]) [[pgroup][priority group]] in either of any conditions listed below
+1. [[flag][flag]] is rasied
+2. [[credits][credits]] left percentage blow [[F4][F4]]
 
-*** Caller get scheduled out for a limited amount of time if the system is [[overloaded]]
+*** Caller get scheduled out for a limited amount of time if the system is [[overloaded][overloaded]]
+
 see ~load_ctl:maydelay~
-Caller is back on scheduler when [[flag]] is cleared.
+
+Caller is back on scheduler when [[flag][flag]] is cleared.
+
 *TODO* Caller could be scheduled out when the system is *warm* as well?
 
 ** config parameters
 | parm name | type            |   default | comments                                                                                                              |
 |-----------+-----------------+-----------+-----------------------------------------------------------------------------------------------------------------------|
-| <<F0>>    | boolean()       |      true | Set it to false to disable the load control function. To reenable, you should call ~load_ctl:restart_runq_flagman/0~. |
-| <<F1>>    | integer()       |         8 | [[scheduler]] multipler, [[runq]] is overlimit when [[runq]] > [[scheduler]] * [[F1]]                                                     |
-| <<F2>>    | float()         |       0.8 | [[Scheduler]] utilization limit for increasing [[credits]]                                                                    |
-| <<F3>>    | integer()       |         2 | Priority threshold for killing processes in [[priority group]] forcefully.                                                |
-| <<F4>>    | integer() < 100 |        50 | [[Credits]] left precentage.                                                                                              |
-| <<T1>>    | integer()       | 3000 (ms) | Regular [[runq]] check interval, see also [[T2]]                                                                              |
-| <<T2>>    | integer()       | 1000 (ms) | [[runq]] check interval when it is [[overlimit]]. See [[F1]]                                                                      |
-| <<C1>>    | integer()       |         3 | Cooldown [[credits]].                                                                                                     |
+| F0<<F0>>  | boolean()       |      true | Set it to false to disable the load control function. To reenable, you should call ~load_ctl:restart_runq_flagman/0~. |
+| F1<<F1>>  | integer()       |         8 | [[scheduler][scheduler]] multipler, [[runq][runq]] is overlimit when [[runq][runq]] > [[scheduler][scheduler]] * [[F1][F1]]                                                     |
+| F2<<F2>>  | float()         |       0.8 | [[scheduler][scheduler]] utilization limit for increasing [[credits][credits]]                                                                    |
+| F3<<F3>>  | integer()       |         2 | Priority threshold for killing processes in [[pgroup][priority group]] forcefully.                                 |
+| F4<<F4>>  | integer() < 100 |        50 | [[credits][credits]] left precentage.                                                                                              |
+| T1<<T1>>  | integer()       | 3000 (ms) | Regular [[runq][runq]] check interval, see also [[T2][T2]]                                                                              |
+| T2<<T2>>  | integer()       | 1000 (ms) | [[runq][runq]] check interval when it is overlimit. See [[F1][F1]]                                                                      |
+| C2<<C1>>  | integer()       |         3 | Cooldown [[credits][credits]].                                                                                                     |
 
 ** state machine
 #+begin_src plantuml :file flagman_fsm.png
