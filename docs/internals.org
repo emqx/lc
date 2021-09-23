@@ -1,0 +1,138 @@
+#+TITLE: Statemachine
+
+* flagman
+** Overall
+=flagman= is a long-living, supervised process which only monitors the system [[runq]] and ensures [[actions]] are taken when conditions are met.
+
+By design, the process runs as high priority and avoids communicating with other processes.
+
+** Terminology
+| Term               | Definition                                                                                                             |
+|--------------------+------------------------------------------------------------------------------------------------------------------------|
+| <<runq>>           | The length of beam system run_queue, checked periodly, see [[T1]] and [[T2]].                                                  |
+| <<scheduler>>      | Number of *Online* schedulers.                                                                                         |
+| <<credits>>        | Gain credits when [[runq]] is under limit, loose credits when [[runq]] is over limit.                                          |
+| <<priority group>> | Process could join/leave prioriy groups. Load contol takes different actions when conditions are meet.                 |
+| <<overloaded>>     | State when [[credits]] runs out. System is overloaded and action must be taken.                                            |
+| <<warm>>           | State when system is loosing/gaining [[credits]], a middle state preventing system is shifting between [[cold]] and [[overloaded]] |
+| <<cold>>           | State when system is full of [[credits]]                                                                                   |
+| <<flag>>           | Regisered process name when system is [[overloaded]]                                                                       |
+| <<actions>>        | Actions to take to cool down the system. Action is taken by either flagman or API caller                               |
+
+
+** [[Actions]] to take:
+
+*** Control the [[flag]]
+- ensure the [[flag]] is rasied when system is <<overloaded>>.
+- ensure the [[flag]] is cleared when system is cold
+
+*** Brutal kill processes in low (<= [[F3]]) [[priority group]] in either of any conditions listed below
+1. [[flag]] is rasied
+2. [[credits]] left percentage blow [[F4]]
+
+*** Caller get scheduled out for a limited amount of time if the system is [[overloaded]]
+see ~load_ctl:maydelay~
+Caller is back on scheduler when [[flag]] is cleared.
+*TODO* Caller could be scheduled out when the system is *warm* as well?
+
+** config parameters
+| parm name | type            |   default | comments                                                                                                              |
+|-----------+-----------------+-----------+-----------------------------------------------------------------------------------------------------------------------|
+| <<F0>>    | boolean()       |      true | Set it to false to disable the load control function. To reenable, you should call ~load_ctl:restart_runq_flagman/0~. |
+| <<F1>>    | integer()       |         8 | [[scheduler]] multipler, [[runq]] is overlimit when [[runq]] > [[scheduler]] * [[F1]]                                                     |
+| <<F2>>    | float()         |       0.8 | [[Scheduler]] utilization limit for increasing [[credits]]                                                                    |
+| <<F3>>    | integer()       |         2 | Priority threshold for killing processes in [[priority group]] forcefully.                                                |
+| <<F4>>    | integer() < 100 |        50 | [[Credits]] left precentage.                                                                                              |
+| <<T1>>    | integer()       | 3000 (ms) | Regular [[runq]] check interval, see also [[T2]]                                                                              |
+| <<T2>>    | integer()       | 1000 (ms) | [[runq]] check interval when it is [[overlimit]]. See [[F1]]                                                                      |
+| <<C1>>    | integer()       |         3 | Cooldown [[credits]].                                                                                                     |
+
+** state machine
+#+begin_src plantuml :file flagman_fsm.png
+@startuml
+state cold #lightblue
+state warm #yellow
+state overloaded #red
+
+[*] -> cold
+cold -> warm: credit dec
+warm -> overloaded: credits run out
+overloaded -> warm: credit inc
+warm -> cold: credits fully recovered
+
+cold: - Overloaded flag is cleared
+cold: - Credit is full
+overloaded: Overloaded flag presents
+overloaded: kill low priority processes unconditionally
+
+warm: kill low priority processes when Credit / C1 * 100 < F4
+
+@enduml
+
+#+end_src
+
+#+RESULTS:
+[[file:flagman_fsm.png]]
+
+* KILL [Dropped Idea] runq monitor
+The main reason I drop this idea is that there seems no any benefit to make it a gen_statm
+because it should not handle any calls from other processes to minimize any undesired workload and let it be standalone.
+
+** API
+*** active check system is overloaded
+fun is_overload()-> boolean()
+*** passive check
+
+** state machine
+#+begin_src plantuml :file state_machine.png
+
+state init #white ##[dashed]blue
+state runq_ok #green ##green
+state runq_warning #gray ##gray
+state runq_critical #red ##red
+
+[*] --> init
+init --> runq_ok: T0 fired
+
+runq_ok --> runq_ok: T0 fired
+runq_ok -[#brown]-> runq_warning: T1 fired
+runq_ok -[#red,bold]--> runq_critical: T2 fired
+runq_warning --> runq_warning: T0 fired
+runq_warning --> runq_critical: T2 fired
+runq_warning -[#green]-> runq_ok: T1 fired \n runq <= M1 * Nsch
+runq_critical --[#green]-> runq_ok: T2 fired \n runq <= M1 * Nsch
+runq_critical --> runq_warning: T2 fired \n runq <= M2 * Nsch
+runq_critical --> runq_critical: T1 fired
+
+runq_ok --> stopped:  stop call
+runq_warning --> stopped: stop call
+runq_critical ---> stopped: stop call
+
+init: start T0
+init: spawn dummy process
+
+note right of runq_ok
+start T0, check runq
+runq <= M1 * NSch cancel T1 and T2 if presents
+M1*NSch < M2 < M2*NSch, start T1 if not
+runq >= M2 * NSch, start T2 if not
+end note
+
+note left of runq_warning
+1. start T1
+2. check runq
+end note
+
+note left of runq_critical
+1.check runq
+2. start T2
+end note
+
+note left of stopped
+unregister proc
+end note
+
+#+end_src
+
+#+RESULTS:
+[[file:state_machine.png]]
