@@ -1,4 +1,5 @@
 #+TITLE: internals
+#+OPTIONS: toc:nil ^:nil
 
 * flagman
 ** Overall
@@ -11,10 +12,10 @@ By design, the process runs as high priority and avoids communicating with other
 |----------------------------------+------------------------------------------------------------------------------------------------------------------------|
 | Runq<<runq>>                     | The length of beam system run_queue, checked periodly, see [[T1][T1]] and [[T2][T2]].                                                  |
 | Scheduler<<scheduler>>           | Number of *Online* schedulers.                                                                                         |
-| Credits<<credits>>               | Gain credits when [[runq][runq]] is under limit, loose credits when [[runq][runq]] is over limit.                                          |
+| Credits<<credits>>               | Gain credits when [[runq][runq]] is under limit, lose credits when [[runq][runq]] is over limit.                                           |
 | Priority Group<<pgroup>>         | Process could join/leave prioriy groups. Load contol takes different actions when conditions are meet.                 |
 | Overloaded<<overloaded>>         | State when [[credits][credits]] runs out. System is overloaded and action must be taken.                                            |
-| Warm<<warm>>                     | State when system is loosing/gaining [[credits][credits]], a middle state preventing system is shifting between [[cold][cold]] and [[overloaded][overloaded]] |
+| Warm<<warm>>                     | State when system is losing/gaining [[credits][credits]], a middle state preventing system is shifting between [[cold][cold]] and [[overloaded][overloaded]]  |
 | Cold<<cold>>                     | State when system is full of [[credits][credits]]                                                                                   |
 | Flag<<flag>>                     | Regisered process name when system is [[overloaded][overloaded]]                                                                       |
 | Actions<<actions>>               | Actions to take to cool down the system. Action is taken by either flagman or API caller                               |

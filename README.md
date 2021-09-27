@@ -40,6 +40,10 @@ While the system is overloaded, the processes in the group under prioriy thresho
 
 It is also configurable that very low priority processes could get killed while system trends become overloaded.
 
+IMPORTANT: Please double check the side effect of the killing process.
+If the caller processes are supervised under the same supervior, the bursts restarts could make
+the supervior reaches the intensity and period limit and cause the supervior itself get killed.
+
 ## enable/disable load control: stop/restart flagman
 
 *flagman* is a daemon process that monitors the system load.
