@@ -129,6 +129,8 @@ all() ->
   , lc_flagman_flagoff_after_stop
   , lc_maydely_1
   , lc_flagman_start_stop
+  , lc_alarm
+  , lc_alarm2
   ].
 
 %%--------------------------------------------------------------------
@@ -264,7 +266,7 @@ lc_flagman_start_stop(_Config) ->
 lc_flagman_flagoff_after_stop(Config) ->
   lc_flagman_recover(Config),
   ?assert(load_ctl:is_overloaded()),
-  load_ctl:stop_runq_flagman(10000),
+  ok = load_ctl:stop_runq_flagman(10000),
   ?assert(not load_ctl:is_overloaded()),
   ok.
 
@@ -272,11 +274,31 @@ lc_maydely_1(Config) ->
   lc_flagman_recover(Config),
   StartTS = os:timestamp(),
   ?assertEqual(timeout, load_ctl:maydelay(2000)),
-  ?assert(timer:now_diff(os:timestamp(), StartTS) < 2010000),
+  ?assert(timer:now_diff(os:timestamp(), StartTS) < 2500000),
   exit(whereis(?RUNQ_MON_FLAG_NAME), kill),
   StartTS2 = os:timestamp(),
   ?assertEqual(ok, load_ctl:maydelay(1000)),
   ?assert(timer:now_diff(os:timestamp(), StartTS2) < 50000).
+
+lc_alarm(Config) ->
+  alarm_handler:start_link(),
+  lc_flagman_recover(Config),
+  ?assertMatch([{?LC_ALARM_ID_RUNQ, _}], alarm_handler:get_alarms()),
+
+  LConfig = load_ctl:get_config(),
+  load_ctl:put_config(LConfig#{?RUNQ_MON_F2 => 0.5}),
+  timer:sleep(5000),
+  ?assertMatch([], alarm_handler:get_alarms()),
+  ok.
+
+lc_alarm2(Config) ->
+  alarm_handler:start_link(),
+  lc_flagman_recover(Config),
+  ?assertMatch([{?LC_ALARM_ID_RUNQ, _}], alarm_handler:get_alarms()),
+  ok = load_ctl:stop_runq_flagman(10000),
+  timer:sleep(100),
+  ?assertMatch([], alarm_handler:get_alarms()),
+  ok.
 
 %% internal helper
 worker_parent(N, {M, F, A}) ->

@@ -86,6 +86,9 @@ load_ctl:put_config(Config::map()) -> ok | {error, badarg}.
 for config keys in the `Config` map refer to 
 [DOC Internals](./docs/internals.md)
 
+## Alarm
+Once the system is overloaded, alarm **lc_runq_alarm** is raised via *alarm_handler* with current runq length.
+
 # Dependencies
 1. OTP 23+
 1. rebar3
