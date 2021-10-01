@@ -119,7 +119,10 @@ kill_priority_groups(Threshold) when is_integer(Threshold) ->
 -spec raise_flag(non_neg_integer()) -> Flag :: pid().
 raise_flag(RunQLen) ->
   Owner = self(),
-  catch alarm_handler:set_alarm({?LC_ALARM_ID_RUNQ, RunQLen}),
+  catch alarm_handler:set_alarm({?LC_ALARM_ID_RUNQ,
+                                 #{ node => node()
+                                  , runq_length => RunQLen
+                                  }}),
   case whereis(?RUNQ_MON_FLAG_NAME) of
     undefined ->
       spawn_link(fun() ->

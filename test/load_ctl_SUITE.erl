@@ -283,8 +283,9 @@ lc_maydely_1(Config) ->
 lc_alarm(Config) ->
   alarm_handler:start_link(),
   lc_flagman_recover(Config),
-  ?assertMatch([{?LC_ALARM_ID_RUNQ, _}], alarm_handler:get_alarms()),
-
+  [{?LC_ALARM_ID_RUNQ, #{node := Node, runq_length := QLen}}] = alarm_handler:get_alarms(),
+  ?assertEqual(Node, node()),
+  ?assert(QLen > 0),
   LConfig = load_ctl:get_config(),
   load_ctl:put_config(LConfig#{?RUNQ_MON_F2 => 0.5}),
   timer:sleep(5000),

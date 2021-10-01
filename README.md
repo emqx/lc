@@ -87,7 +87,15 @@ for config keys in the `Config` map refer to
 [DOC Internals](./docs/internals.md)
 
 ## Alarm
-Once the system is overloaded, alarm **lc_runq_alarm** is raised via *alarm_handler* with current runq length.
+Once the system is overloaded, alarm **lc_runq_alarm** is raised via *alarm_handler* with alarm info as following
+
+``` erlang
+#{ node % node()
+ , runq_length  %% runq len when triggered
+ } 
+```
+
+The alarm is cleared when the system is cool or the flagman is stopped.
 
 # Dependencies
 1. OTP 23+
