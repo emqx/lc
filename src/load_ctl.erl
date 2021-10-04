@@ -85,7 +85,7 @@ stop_runq_flagman(Timeout) ->
 whereis_runq_flagman() ->
   lc_sup:whereis_runq_flagman().
 
--spec restart_runq_flagman() -> {ok, pid} | {error, running | restarting}.
+-spec restart_runq_flagman() -> {ok, pid()} | {error, running | restarting}.
 restart_runq_flagman() ->
   lc_sup:restart_runq_flagman().
 
