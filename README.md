@@ -19,12 +19,16 @@ Ideal for checking in realtime workloads, like before spawning the new process t
 ## maydelay
 
 ``` erlang
-maydelay(timer:timeout()) -> ok | timeout.
+maydelay(timer:timeout()) -> false | ok | timeout.
 ```
 
 Blocks the caller until the system is not overloaded or timeout.
 
-Ideal for checking in heavy lifting workload. In case some heavy lifting workload is unimportant and could be deferred. 
+Ideal for checking in heavy lifting workload. In case some heavy lifting workload is unimportant and could be deferred.
+
+retuns `false` when there was no delay.
+retuns `ok` when there was delay but get unblocked by system cooldown.
+retuns `timeout` when there was delay but unblock due to timeout.
 
 ## join/leave a priority process group
 
