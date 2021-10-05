@@ -46,13 +46,15 @@
 is_overloaded() ->
   not (undefined =:= whereis(?RUNQ_MON_FLAG_NAME)).
 
--spec maydelay(timer:timeout()) -> ok | timeout.
+-spec maydelay(timer:timeout()) -> ok | timeout | false.
 maydelay(Timeout) ->
-  case accompany(?RUNQ_MON_FLAG_NAME, Timeout) of
+  case is_overloaded() andalso accompany(?RUNQ_MON_FLAG_NAME, Timeout) of
     ok ->
       ok;
     {error, timeout} ->
-      timeout
+      timeout;
+    false ->
+      false
   end.
 
 %% process is put into a process priority group
@@ -85,7 +87,7 @@ stop_runq_flagman(Timeout) ->
 whereis_runq_flagman() ->
   lc_sup:whereis_runq_flagman().
 
--spec restart_runq_flagman() -> {ok, pid} | {error, running | restarting}.
+-spec restart_runq_flagman() -> {ok, pid()} | {error, running | restarting}.
 restart_runq_flagman() ->
   lc_sup:restart_runq_flagman().
 

@@ -19,12 +19,16 @@ Ideal for checking in realtime workloads, like before spawning the new process t
 ## maydelay
 
 ``` erlang
-maydelay(timer:timeout()) -> ok | timeout.
+maydelay(timer:timeout()) -> false | ok | timeout.
 ```
 
 Blocks the caller until the system is not overloaded or timeout.
 
-Ideal for checking in heavy lifting workload. In case some heavy lifting workload is unimportant and could be deferred. 
+Ideal for checking in heavy lifting workload. In case some heavy lifting workload is unimportant and could be deferred.
+
+retuns `false` when there was no delay.
+retuns `ok` when there was delay but get unblocked by system cooldown.
+retuns `timeout` when there was delay but unblock due to timeout.
 
 ## join/leave a priority process group
 
@@ -85,6 +89,17 @@ load_ctl:put_config(Config::map()) -> ok | {error, badarg}.
 
 for config keys in the `Config` map refer to 
 [DOC Internals](./docs/internals.md)
+
+## Alarm
+Once the system is overloaded, alarm **lc_runq_alarm** is raised via *alarm_handler* with alarm info as following
+
+``` erlang
+#{ node % node()
+ , runq_length  %% runq len when triggered
+ } 
+```
+
+The alarm is cleared when the system is cool or the flagman is stopped.
 
 # Dependencies
 1. OTP 23+

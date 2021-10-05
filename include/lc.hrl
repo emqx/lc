@@ -17,6 +17,8 @@
 -ifndef(LC_HRL).
 -define(LC_HRL, true).
 
+-define(LC_ALARM_ID_RUNQ, lc_runq_alarm).
+
 -define(LC_SCOPE, '_lc_scope_').
 -define(LC_GROUP, '_lc_group_').
 

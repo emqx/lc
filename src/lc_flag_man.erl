@@ -36,6 +36,7 @@ init() ->
   process_flag(priority, max),
   process_flag(trap_exit, false),
   process_flag(message_queue_data, off_heap),
+  catch alarm_handler:clear_alarm(?LC_ALARM_ID_RUNQ),
   proc_lib:init_ack({ok, self()}),
   Credit = config_get(?RUNQ_MON_C1, configs(), ?RUNQ_MON_C1_DEFAULT),
   State =
@@ -63,7 +64,7 @@ flag_man_loop(#{ current_credit := CurrentCredit, sample := LastSample} = State)
     = case RunQLen > ScheduleCount * F1 of
         true when CurrentCredit == 1 ->
           %% overloaded, raise flag
-          raise_flag(),
+          raise_flag(RunQLen),
           kill_priority_groups(F3),
           ?tp(debug, lc_flagman, #{event => flag_on}),
           {0, T1 + T2};
@@ -115,9 +116,13 @@ kill_priority_groups(Threshold) when is_integer(Threshold) ->
 %% Have a dummy process to register the flag name
 %% so that other process could monitor it and get monitor
 %% signal when the flag is removed.
--spec raise_flag() -> Flag :: pid().
-raise_flag() ->
+-spec raise_flag(non_neg_integer()) -> Flag :: pid().
+raise_flag(RunQLen) ->
   Owner = self(),
+  catch alarm_handler:set_alarm({?LC_ALARM_ID_RUNQ,
+                                 #{ node => node()
+                                  , runq_length => RunQLen
+                                  }}),
   case whereis(?RUNQ_MON_FLAG_NAME) of
     undefined ->
       spawn_link(fun() ->
@@ -125,8 +130,10 @@ raise_flag() ->
                      MRef = erlang:monitor(process, Owner),
                      receive
                        stop -> ok;
-                       {'DOWN', MRef, process, _, _} -> ok
-                     end
+                       {'DOWN', MRef, process, _, _} ->
+                         ok
+                     end,
+                     catch alarm_handler:clear_alarm(?LC_ALARM_ID_RUNQ)
                  end);
     Pid ->
       Pid
