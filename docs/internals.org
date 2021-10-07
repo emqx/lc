@@ -45,8 +45,9 @@ Caller is back on scheduler when [[flag][flag]] is cleared.
 | F0<<F0>>  | boolean()       |      true | Set it to false to disable the load control function. To reenable, you should call ~load_ctl:restart_runq_flagman/0~. |
 | F1<<F1>>  | integer()       |         8 | [[scheduler][scheduler]] multipler, [[runq][runq]] is overlimit when [[runq][runq]] > [[scheduler][scheduler]] * [[F1][F1]]                                                     |
 | F2<<F2>>  | float()         |       0.8 | [[scheduler][scheduler]] utilization limit for increasing [[credits][credits]]                                                                    |
-| F3<<F3>>  | integer()       |         2 | Priority threshold for killing processes in [[pgroup][priority group]] forcefully.                                 |
-| F4<<F4>>  | integer() < 100 |        50 | [[credits][credits]] left precentage.                                                                                              |
+| F3<<F3>>  | integer()       |         2 | Priority threshold for killing processes in [[pgroup][priority group]] forcefully.                                                |
+| F4<<F4>>  | integer() < 100 |        50 | [[credits][credits]] left percentage.                                                                                              |
+| F5<<F5>>  | integer()       |         0 | Scheduler turnaround time threshold (in ms) for extra [[credits][credits]] loss. 0 is off                                          |
 | T1<<T1>>  | integer()       | 3000 (ms) | Regular [[runq][runq]] check interval, see also [[T2][T2]]                                                                              |
 | T2<<T2>>  | integer()       | 1000 (ms) | [[runq][runq]] check interval when it is overlimit. See [[F1][F1]]                                                                      |
 | C2<<C1>>  | integer()       |         3 | Cooldown [[credits][credits]].                                                                                                     |
