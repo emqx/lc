@@ -49,6 +49,12 @@
 -define(RUNQ_MON_F4, run_queue_f4).
 -define(RUNQ_MON_F4_DEFAULT, 50).
 
+%% extra credit loss when turn around time
+%% of flagman is above this threshold (ms)
+%% set 0 to turn off, value <0 is for testing
+-define(RUNQ_MON_F5, run_queue_f5).
+-define(RUNQ_MON_F5_DEFAULT, 0).
+
 %% run_queue length probe inteval (ms)
 -define(RUNQ_MON_T1, run_queue_t1).
 -define(RUNQ_MON_T1_DEFAULT, 3000).
