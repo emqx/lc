@@ -40,6 +40,8 @@ suite() ->
 %% @end
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+  ct:pal("Schdulers on line ~p ~n",
+         [erlang:system_info(schedulers_online)]),
   [{timetrap, 60000} | Config].
 
 %%--------------------------------------------------------------------
@@ -79,8 +81,9 @@ end_per_group(_GroupName, _Config) ->
 %% Reason = term()
 %% @end
 %%--------------------------------------------------------------------
-init_per_testcase(_TestCase, Config) ->
-  Config.
+init_per_testcase(TestCase, Config) ->
+  NewConfig = ?MODULE:TestCase({init, Config}),
+  NewConfig.
 
 %%--------------------------------------------------------------------
 %% @spec end_per_testcase(TestCase, Config0) ->
@@ -124,6 +127,8 @@ all() ->
   , lc_app_stop
   , lc_flagman_noop
   , lc_flagman_flag_onoff
+  , lc_flagman_leap_on
+  , lc_flagman_leap_off
   , lc_flagman_recover
   , lc_control_pg
   , lc_flagman_flagoff_after_stop
@@ -142,13 +147,19 @@ all() ->
 %% Comment = term()
 %% @end
 %%--------------------------------------------------------------------
+lc_app_start({init, Config}) ->
+  Config;
 lc_app_start(_Config) ->
   application:start(lc),
   supervisor:which_children(lc_sup).
 
+lc_app_stop({init, Config}) ->
+  Config;
 lc_app_stop(_Config) ->
   application:stop(lc).
 
+lc_flagman_noop({init, Config}) ->
+  Config;
 lc_flagman_noop(_Config) ->
   application:ensure_all_started(lc),
   NProc = erlang:system_info(schedulers_online),
@@ -165,12 +176,15 @@ lc_flagman_noop(_Config) ->
                                         [noop])
                end).
 
-lc_flagman_flag_onoff(_Config) ->
+lc_flagman_flag_onoff({init, Config}) ->
   application:ensure_all_started(lc),
-  ok = load_ctl:put_config(#{ ?RUNQ_MON_T1 => 1000
-                            , ?RUNQ_MON_T2 => 500
-                            , ?RUNQ_MON_C1 => 3
-                      }),
+  [{ lc_config,  #{ ?RUNQ_MON_T1 => 1000
+                  , ?RUNQ_MON_T2 => 500
+                  , ?RUNQ_MON_C1 => 3
+                  }
+   } | Config];
+lc_flagman_flag_onoff(Config) ->
+  ok = load_ctl:put_config(?config(lc_config, Config)),
   NProc = erlang:system_info(schedulers_online),
   ?check_trace(#{timetrap => 30000},
                begin
@@ -193,6 +207,8 @@ lc_flagman_flag_onoff(_Config) ->
                      )
                end).
 
+lc_flagman_recover({init, Config}) ->
+  Config;
 lc_flagman_recover(_Config) ->
   application:ensure_all_started(lc),
   NProc = erlang:system_info(schedulers_online),
@@ -218,7 +234,8 @@ lc_flagman_recover(_Config) ->
                                         [on_fire, flag_on, noop, cooldown_pending])
                end).
 
-
+lc_control_pg({init, Config}) ->
+  Config;
 lc_control_pg(_Config) ->
   application:ensure_all_started(lc),
   NProc = erlang:system_info(schedulers_online),
@@ -226,7 +243,7 @@ lc_control_pg(_Config) ->
                             , ?RUNQ_MON_T2 => 200
                             , ?RUNQ_MON_F2 =>  0.8
                             , ?RUNQ_MON_F3 => 2
-                      }),
+                            }),
   ?check_trace(#{timetrap => 30000},
                begin
                  BusyPid = spawn(?MODULE, worker_parent, [NProc * 10, {?MODULE, busy_loop, []}]),
@@ -252,7 +269,8 @@ lc_control_pg(_Config) ->
                                          kill_priority_groups
                                         ])
                end).
-
+lc_flagman_start_stop({init, Config}) ->
+  Config;
 lc_flagman_start_stop(_Config) ->
   application:ensure_all_started(lc),
   wait_for_runq_flagman(_Retry = 10),
@@ -263,6 +281,8 @@ lc_flagman_start_stop(_Config) ->
   ?assertEqual(Pid, load_ctl:whereis_runq_flagman()),
   ok.
 
+lc_flagman_flagoff_after_stop({init, Config}) ->
+  Config;
 lc_flagman_flagoff_after_stop(Config) ->
   lc_flagman_recover(Config),
   ?assert(load_ctl:is_overloaded()),
@@ -270,6 +290,33 @@ lc_flagman_flagoff_after_stop(Config) ->
   ?assert(not load_ctl:is_overloaded()),
   ok.
 
+lc_flagman_leap_on({init, Config}) ->
+  application:ensure_all_started(lc),
+  [{ lc_config,  #{ ?RUNQ_MON_T1 => 1000
+                  , ?RUNQ_MON_T2 => 500
+                  , ?RUNQ_MON_C1 => 2
+                  , ?RUNQ_MON_F5 => -1
+                  }
+   } | Config];
+lc_flagman_leap_on(Config) ->
+  application:ensure_all_started(lc),
+  lc_flagman_flag_onoff(Config).
+
+
+lc_flagman_leap_off({init, Config}) ->
+  application:ensure_all_started(lc),
+  [{ lc_config,  #{ ?RUNQ_MON_T1 => 1000
+                  , ?RUNQ_MON_T2 => 500
+                  , ?RUNQ_MON_C1 => 3
+                  , ?RUNQ_MON_F5 => 0
+                  }
+   } | Config];
+lc_flagman_leap_off(Config) ->
+  application:ensure_all_started(lc),
+  lc_flagman_flag_onoff(Config).
+
+lc_maydely_1({init, Config}) ->
+  Config;
 lc_maydely_1(Config) ->
   lc_flagman_recover(Config),
   StartTS = os:timestamp(),
@@ -280,6 +327,8 @@ lc_maydely_1(Config) ->
   ?assertEqual(ok, load_ctl:maydelay(1000)),
   ?assert(timer:now_diff(os:timestamp(), StartTS2) < 50000).
 
+lc_alarm({init, Config}) ->
+  Config;
 lc_alarm(Config) ->
   alarm_handler:start_link(),
   lc_flagman_recover(Config),
@@ -292,6 +341,8 @@ lc_alarm(Config) ->
   ?assertMatch([], alarm_handler:get_alarms()),
   ok.
 
+lc_alarm2({init, Config}) ->
+  Config;
 lc_alarm2(Config) ->
   alarm_handler:start_link(),
   lc_flagman_recover(Config),
@@ -309,6 +360,7 @@ worker_parent(N, {M, F, A}) ->
   receive stop -> ok end.
 
 busy_loop() ->
+  erlang:yield(),
   busy_loop().
 
 priority_loop(P) ->
