@@ -287,6 +287,8 @@ lc_flagman_flagoff_after_stop(Config) ->
   lc_flagman_recover(Config),
   ?assert(load_ctl:is_overloaded()),
   ok = load_ctl:stop_runq_flagman(10000),
+  %% we found unreg process takes time
+  timer:sleep(2),
   ?assert(not load_ctl:is_overloaded()),
   ok.
 
