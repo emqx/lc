@@ -7,6 +7,10 @@
 
 By design, the process runs as high priority and avoids communicating with other processes.
 
+*flagman* can also take its own scheduling roundtrip time into a factor ([[F5][F5]]) to speed up the detection of system overload.
+This is done by taking timestamps when it is off and on the scheduler to check if there is a time leap. If the gap is large enough
+that is a sign that VM has very limited resources on scheduling.
+
 ** Terminology
 | Term                             | Definition                                                                                                             |
 |----------------------------------+------------------------------------------------------------------------------------------------------------------------|
