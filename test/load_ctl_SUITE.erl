@@ -277,6 +277,9 @@ lc_flagman_start_stop(_Config) ->
   ?assert(is_pid(load_ctl:whereis_runq_flagman())),
   ok = load_ctl:stop_runq_flagman(10000),
   ?assertEqual(undefined, load_ctl:whereis_runq_flagman()),
+  {error, disabled} = load_ctl:restart_runq_flagman(),
+  Old = load_ctl:get_config(),
+  ok = load_ctl:put_config(Old#{ ?RUNQ_MON_F0 => true}),
   {ok, Pid} = load_ctl:restart_runq_flagman(),
   ?assertEqual(Pid, load_ctl:whereis_runq_flagman()),
   ok.
