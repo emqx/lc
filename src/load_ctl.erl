@@ -87,7 +87,7 @@ stop_runq_flagman(Timeout) ->
 whereis_runq_flagman() ->
   lc_sup:whereis_runq_flagman().
 
--spec restart_runq_flagman() -> {ok, pid()} | {error, running | restarting, disabled}.
+-spec restart_runq_flagman() -> {ok, pid()} | {error, running | restarting | disabled}.
 restart_runq_flagman() ->
   case get_config() of
     #{?RUNQ_MON_F0 := false} ->
