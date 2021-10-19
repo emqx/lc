@@ -109,7 +109,7 @@ flag_man_loop(#{ current_credit := CurrentCredit
               {CurrentCredit, T1, IsFlag}
           end;
         _ ->
-          ?tp(debug, lc_flagman, State#{event => noop}),
+          ?tp(lc_flagman, State#{event => noop}),
           {CurrentCredit, T1, IsFlag}
       end,
   timer:sleep(SleepMs),
