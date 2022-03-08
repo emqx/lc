@@ -394,7 +394,7 @@ lc_mem(_Config) ->
                             ),
                  timer:sleep(?MEM_MON_T1_DEFAULT*2),
                  Check1 = load_ctl:is_high_mem(),
-                 ?assert(load_ctl:is_high_mem()),
+                 ?assert(Check1),
                  meck:unload(lc_lib),
                  timer:sleep(?MEM_MON_T1_DEFAULT*2),
                  Check2 = load_ctl:is_high_mem(),
@@ -404,9 +404,9 @@ lc_mem(_Config) ->
                    ct:pal("Trace is ~p", [Trace]),
                    ?assertEqual({true, false}, Result),
                    ?assert(?strict_causality(
-                              #{'$kind' := lc_flag_man
+                              #{?snk_kind := lc_flag_man
                                , event := raise_flag},
-                              #{'$kind' := lc_flag_man
+                              #{?snk_kind := lc_flag_man
                                , event := remove_flag},
                               Trace)
                           )

@@ -56,7 +56,7 @@ check(#{ current_credit := CurrentCredit
   T2 = config_get(?RUNQ_MON_T2, Conf, ?RUNQ_MON_T2_DEFAULT),
   C1 = config_get(?RUNQ_MON_C1, Conf, ?RUNQ_MON_C1_DEFAULT),
 
-  %% when I should dead
+  %% when I should die
   F0 =/= true andalso exit(normal),
 
   TurnAroundTime = ts() - TS,

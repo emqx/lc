@@ -29,7 +29,6 @@
          , callback := module()
          }.
 init(#{callback:=_} = S0) ->
-  catch alarm_handler:clear_alarm(?LC_ALARM_ID_RUNQ),
   S0#{ is_flagged => false
      , flag_name => ?MEM_MON_FLAG_NAME
      , alarm_name => ?LC_ALARM_ID_MEM
@@ -44,8 +43,8 @@ init(#{callback:=_} = S0) ->
          , callback := module()
          }.
 check(#{callback:= _} = S) ->
-  not lc_lib:config_get(?MEM_MON_F0, ?MEM_MON_F0_DEFAULT)
-    andalso exit(normal),
+  F0 = lc_lib:config_get(?MEM_MON_F0, ?MEM_MON_F0_DEFAULT),
+  true =/= F0 andalso exit(normal),
   New = do_check_memory(S),
   timer:sleep(lc_lib:config_get(?MEM_MON_T1, ?MEM_MON_T1_DEFAULT)),
   New.

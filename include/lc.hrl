@@ -72,10 +72,10 @@
 -define(RUNQ_MON_C1_DEFAULT, 3).
 
 
--define(MEM_MON_F0, memory_f0).
+-define(MEM_MON_F0, memory_check_enabled).
 -define(MEM_MON_F0_DEFAULT, true).
 
--define(MEM_MON_F1, memory_threshod).
+-define(MEM_MON_F1, memory_threshold).
 -define(MEM_MON_F1_DEFAULT, 0.75).
 
 %% mem usage probe inteval (ms)
