@@ -101,13 +101,13 @@ check(#{ current_credit := CurrentCredit
           {CurrentCredit, T1, IsFlag}
       end,
 
-  timer:sleep(SleepMs),
-  State#{ current_credit => NewCredit
-        , sample => scheduler:sample()
-        , last_ts => ts()
-        , is_flagged => NewFlag
-        , alarm_info => #{runq_length => RunQLen}
-        }.
+  NewState = State#{ current_credit => NewCredit
+                   , sample => scheduler:sample()
+                   , last_ts => ts()
+                   , is_flagged => NewFlag
+                   , alarm_info => #{runq_length => RunQLen}
+                   },
+  {SleepMs, NewState}.
 
 
 kill_priority_groups(Threshold) when is_integer(Threshold) ->

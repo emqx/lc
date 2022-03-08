@@ -36,18 +36,18 @@ init(#{callback:=_} = S0) ->
 
 
 -spec check(#{callback:=_}) ->
-        #{ is_flagged := boolean()
-         , flag_name := atom()
-         , alarm_name := atom()
-         , alarm_info := map()
-         , callback := module()
-         }.
+        {NextCheckDelayMs::integer(),  #{ is_flagged := boolean()
+                                        , flag_name := atom()
+                                        , alarm_name := atom()
+                                        , alarm_info := map()
+                                        , callback := module()
+                                        }}.
 check(#{callback:= _} = S) ->
   F0 = lc_lib:config_get(?MEM_MON_F0, ?MEM_MON_F0_DEFAULT),
   true =/= F0 andalso exit(normal),
   New = do_check_memory(S),
-  timer:sleep(lc_lib:config_get(?MEM_MON_T1, ?MEM_MON_T1_DEFAULT)),
-  New.
+  DelayMs = lc_lib:config_get(?MEM_MON_T1, ?MEM_MON_T1_DEFAULT),
+  {DelayMs, New}.
 
 do_check_memory(State) ->
   F0 = lc_lib:config_get(?MEM_MON_F1, ?MEM_MON_F1_DEFAULT),

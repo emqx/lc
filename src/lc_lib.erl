@@ -33,7 +33,7 @@ get_memory_usage()->
       get_sys_memory_usage()
   end.
 
-
+-spec config_get(atom(), any()) -> any().
 config_get(Name, Default)->
     config_get(Name, configs(), Default).
 

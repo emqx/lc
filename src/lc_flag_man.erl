@@ -31,15 +31,15 @@
 
 -callback check(#{ callback := module()
                  , _ => any() }) ->
-  #{ callback := module()
-   , flag_name := atom()
-   , alarm_name := atom()
-   , alarm_info := map()
-   , is_flagged := boolean()
-   , current_credit => integer()
-   , sample => any()
-   , last_ts => integer()
-   }.
+  {integer(), #{ callback := module()
+               , flag_name := atom()
+               , alarm_name := atom()
+               , alarm_info := map()
+               , is_flagged := boolean()
+               , current_credit => integer()
+               , sample => any()
+               , last_ts => integer()
+               }}.
 
 -export([ start_link/1
         , init/1
@@ -61,9 +61,10 @@ init(#{callback:=Callback} = S0) ->
   flag_man_loop(InitState).
 
 flag_man_loop(#{callback := Callback} = State0) ->
-  NewState = Callback:check(State0),
+  {DelayMs, NewState} = Callback:check(State0),
   handle_flag(NewState, State0),
   erlang:yield(),
+  timer:sleep(DelayMs),
   ?MODULE:flag_man_loop(NewState).
 
 
