@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2021 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2021-2022 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -16,165 +16,106 @@
 
 -module(lc_flag_man).
 
--ignore_xref([ start_link/0
-             , init/0
-             ]).
+-callback init(#{ callback := module()
+                , _ => any()
+                }) ->
+  #{ callback := module()
+   , flag_name := atom()
+   , alarm_name := atom()
+   , is_flagged := boolean()
+   , current_credit => integer()
+   , sample => any()
+   , last_ts => integer()
+   , _ =>  _
+   }.
 
--export([ start_link/0
-        , init/0
+-callback check(#{ callback := module()
+                 , _ => any() }) ->
+  #{ callback := module()
+   , flag_name := atom()
+   , alarm_name := atom()
+   , alarm_info := map()
+   , is_flagged := boolean()
+   , current_credit => integer()
+   , sample => any()
+   , last_ts => integer()
+   }.
+
+-export([ start_link/1
+        , init/1
         , flag_man_loop/1
         ]).
 
--include("lc.hrl").
-
 -include_lib("snabbkaffe/include/snabbkaffe.hrl").
 
-start_link() ->
-  proc_lib:start_link(?MODULE, init, []).
+start_link(Args) ->
+  proc_lib:start_link(?MODULE, init, Args).
 
-init() ->
+init(#{callback:=Callback} = S0) ->
   process_flag(priority, max),
   process_flag(trap_exit, false),
   process_flag(message_queue_data, off_heap),
-  catch alarm_handler:clear_alarm(?LC_ALARM_ID_RUNQ),
   proc_lib:init_ack({ok, self()}),
-  Credit = config_get(?RUNQ_MON_C1, configs(), ?RUNQ_MON_C1_DEFAULT),
-  State =
-    #{ current_credit => Credit
-     , sample => scheduler:sample()
-     , last_ts => ts()
-     , is_flagged => false
-     },
-  flag_man_loop(State).
+  InitState = Callback:init(S0),
+  catch alarm_handler:clear_alarm(maps:get(alarm_name, InitState)),
+  flag_man_loop(InitState).
 
-flag_man_loop(#{ current_credit := CurrentCredit
-               , sample := LastSample
-               , last_ts := TS
-               , is_flagged := IsFlag
-               } = State) ->
-  RunQLen = erlang:statistics(total_run_queue_lengths),
-  ScheduleCount = erlang:system_info(schedulers_online),
-  Conf = configs(),
-  F0 = config_get(?RUNQ_MON_F0, Conf, ?RUNQ_MON_F0_DEFAULT),
-  F1 = config_get(?RUNQ_MON_F1, Conf, ?RUNQ_MON_F1_DEFAULT),
-  F2 = config_get(?RUNQ_MON_F2, Conf, ?RUNQ_MON_F2_DEFAULT),
-  F3 = config_get(?RUNQ_MON_F3, Conf, ?RUNQ_MON_F3_DEFAULT),
-  F4 = config_get(?RUNQ_MON_F4, Conf, ?RUNQ_MON_F4_DEFAULT),
-  F5 = config_get(?RUNQ_MON_F5, Conf, ?RUNQ_MON_F5_DEFAULT),
-  T1 = config_get(?RUNQ_MON_T1, Conf, ?RUNQ_MON_T1_DEFAULT),
-  T2 = config_get(?RUNQ_MON_T2, Conf, ?RUNQ_MON_T2_DEFAULT),
-  C1 = config_get(?RUNQ_MON_C1, Conf, ?RUNQ_MON_C1_DEFAULT),
-
-  %% when I should dead
-  F0 =/= true andalso begin remove_flag(), exit(normal) end,
-
-  TurnAroundTime = ts() - TS,
-  IsLeap = F5 =/= 0
-    andalso TurnAroundTime > F5
-    andalso TurnAroundTime < T1
-    andalso TurnAroundTime < T2,
-  IsRunQBurst = RunQLen > ScheduleCount * F1,
-  {NewCredit, SleepMs, NewFlag}
-    = case IsRunQBurst of
-        true when not IsFlag andalso CurrentCredit =< 0 ->
-          %% overloaded, raise flag
-          raise_flag(RunQLen),
-          kill_priority_groups(F3),
-          ?tp(debug, lc_flagman, State#{event => flag_on}),
-          {0, T1 + T2, true};
-        true when CurrentCredit > 0 ->
-          %% overloaded, but still have credits
-          ?tp(debug, lc_flagman, State#{event => on_fire}),
-          CurrentCredit / C1 * 100 < F4 andalso kill_priority_groups(F3),
-          case IsLeap of
-            true ->
-              {CurrentCredit - 2, T2, IsFlag};
-            false ->
-              {CurrentCredit - 1, T2, IsFlag}
-          end;
-        false when IsFlag andalso CurrentCredit == C1 ->
-          %% cool down, remove flag
-          remove_flag(),
-          ?tp(debug, lc_flagman, State#{event => flag_off}),
-          {C1, T1, false};
-        false when CurrentCredit < C1 ->
-          %% cool down, recovering
-          case lists:keyfind(total, 1, scheduler:utilization(LastSample)) of
-            {total, Util, _} when Util < F2 ->
-              %% gain credit only when utilization is recovering as well
-              ?tp(debug, lc_flagman, State#{event => cooldown_success}),
-              {CurrentCredit + 1, T1, IsFlag};
-            _ ->
-              ?tp(debug, lc_flagman, State#{event => cooldown_pending}),
-              {CurrentCredit, T1, IsFlag}
-          end;
-        _ ->
-          ?tp(lc_flagman, State#{event => noop}),
-          {CurrentCredit, T1, IsFlag}
-      end,
-  timer:sleep(SleepMs),
-  NewState = State#{ current_credit => NewCredit
-                   , sample => scheduler:sample()
-                   , last_ts => ts()
-                   , is_flagged => NewFlag
-                   },
+flag_man_loop(#{callback := Callback} = State0) ->
+  NewState = Callback:check(State0),
+  handle_flag(NewState, State0),
   erlang:yield(),
   ?MODULE:flag_man_loop(NewState).
 
-config_get(Name, ConfigTerm, Default) when is_map(ConfigTerm) ->
-  maps:get(Name, ConfigTerm, Default).
 
-configs() ->
-  load_ctl:get_config().
-
-kill_priority_groups(Threshold) when is_integer(Threshold) ->
-  ?tp(debug, lc_flagman, #{event => kill_priority_groups}),
-  lists:foreach(
-    fun(P) ->
-        lists:foreach(
-          fun(Pid) -> exit(Pid, kill) end,
-          pg:get_local_members(?LC_SCOPE, {?LC_GROUP, P})
-         )
-    end,  lists:seq(0, Threshold)).
+-spec handle_flag(New::map(), Old::map()) -> ok | skip.
+handle_flag(#{ is_flagged := true} = NewState,
+            #{ is_flagged := false }) ->
+  #{ flag_name := FlagName
+   , alarm_name := AlarmName
+   , alarm_info := AlarmInfo
+   } = NewState,
+  raise_flag(FlagName, AlarmName, AlarmInfo);
+handle_flag(#{ is_flagged := false } = NewState,
+            #{ is_flagged := true }) ->
+  remove_flag(maps:get(flag_name, NewState));
+handle_flag(_, _) ->
+  skip.
 
 %% Have a dummy process to register the flag name
 %% so that other process could monitor it and get monitor
 %% signal when the flag is removed.
--spec raise_flag(non_neg_integer()) -> Flag :: pid().
-raise_flag(RunQLen) ->
+-spec raise_flag(FlagName::atom(), AlarmName::atom(), AlarmData::map()) -> ok.
+raise_flag(FlagName, AlarmName, AlarmData) ->
+  ?tp(debug, ?MODULE, #{event => raise_flag, item => FlagName}),
   Owner = self(),
-  catch alarm_handler:set_alarm({?LC_ALARM_ID_RUNQ,
-                                 #{ node => node()
-                                  , runq_length => RunQLen
-                                  }}),
-  case whereis(?RUNQ_MON_FLAG_NAME) of
+  case whereis(FlagName) of
     undefined ->
       spawn_link(fun() ->
-                     register(?RUNQ_MON_FLAG_NAME, self()),
+                     register(FlagName, self()),
                      MRef = erlang:monitor(process, Owner),
                      receive
                        stop -> ok;
                        {'DOWN', MRef, process, _, _} ->
                          ok
                      end,
-                     catch alarm_handler:clear_alarm(?LC_ALARM_ID_RUNQ)
+                     catch alarm_handler:clear_alarm(AlarmName)
                  end);
     Pid ->
       Pid
-  end.
+  end,
+  catch alarm_handler:set_alarm({AlarmName, AlarmData#{node => node()}}),
+  ok.
 
--spec remove_flag() -> ok.
-remove_flag() ->
-  case whereis(?RUNQ_MON_FLAG_NAME) of
+-spec remove_flag(FLAG::atom()) -> ok.
+remove_flag(Flag) ->
+  ?tp(debug, ?MODULE, #{event => remove_flag, item => Flag}),
+  case whereis(Flag) of
     undefined -> ok;
     Pid when is_pid(Pid)
              -> Pid ! stop
   end,
   ok.
 
-
-ts() ->
-  erlang:monotonic_time(millisecond).
 
 %%%_* Emacs ====================================================================
 %%% Local Variables:

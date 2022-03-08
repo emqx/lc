@@ -42,6 +42,8 @@ suite() ->
 init_per_suite(Config) ->
   ct:pal("Schdulers on line ~p ~n",
          [erlang:system_info(schedulers_online)]),
+  ct:pal("Self Cgroup ~p Mem Cgroups ~p ~n",
+        [os:cmd("cat /proc/self/cgroup"), os:cmd("ls /sys/fs/cgroup/memory/")]),
   [{timetrap, 60000} | Config].
 
 %%--------------------------------------------------------------------
@@ -82,6 +84,7 @@ end_per_group(_GroupName, _Config) ->
 %% @end
 %%--------------------------------------------------------------------
 init_per_testcase(TestCase, Config) ->
+  application:ensure_all_started(lc),
   NewConfig = ?MODULE:TestCase({init, Config}),
   NewConfig.
 
@@ -125,17 +128,22 @@ groups() ->
 all() ->
   [ lc_app_start
   , lc_app_stop
-  , lc_flagman_noop
-  , lc_flagman_flag_onoff
-  , lc_flagman_leap_on
-  , lc_flagman_leap_off
-  , lc_flagman_recover
+  , lc_runq_noop
+  , lc_runq_flag_onoff
+  , lc_runq_leap_on
+  , lc_runq_leap_off
+  , lc_runq_recover
   , lc_control_pg
   , lc_flagman_flagoff_after_stop
   , lc_maydely_1
-  , lc_flagman_start_stop
+  , lc_runq_flagman_start_stop
+  , lc_mem_flagman_start_stop
   , lc_alarm
   , lc_alarm2
+  , lc_mem
+  , lc_mem_alarm
+  , lc_mem_check
+  , lc_robustness
   ].
 
 %%--------------------------------------------------------------------
@@ -158,10 +166,9 @@ lc_app_stop({init, Config}) ->
 lc_app_stop(_Config) ->
   application:stop(lc).
 
-lc_flagman_noop({init, Config}) ->
+lc_runq_noop({init, Config}) ->
   Config;
-lc_flagman_noop(_Config) ->
-  application:ensure_all_started(lc),
+lc_runq_noop(_Config) ->
   NProc = erlang:system_info(schedulers_online),
   ?check_trace(#{timetrap => 30000},
                begin
@@ -172,19 +179,22 @@ lc_flagman_noop(_Config) ->
                  ok
                end,
                fun(_, Trace) ->
-                   ?projection_complete(event, ?of_kind(lc_flagman, Trace),
+                   ct:pal("Trace is ~p", [Trace]),
+                   ?projection_complete(event, ?of_kind(lc_runq, Trace),
                                         [noop])
                end).
 
-lc_flagman_flag_onoff({init, Config}) ->
-  application:ensure_all_started(lc),
+lc_runq_flag_onoff({init, Config}) ->
   [{ lc_config,  #{ ?RUNQ_MON_T1 => 1000
                   , ?RUNQ_MON_T2 => 500
                   , ?RUNQ_MON_C1 => 3
                   }
    } | Config];
-lc_flagman_flag_onoff(Config) ->
+lc_runq_flag_onoff(Config) ->
+  %% Note, this testcase is reused, so we reinit the config here
+  load_ctl:stop_runq_flagman(),
   ok = load_ctl:put_config(?config(lc_config, Config)),
+  load_ctl:restart_runq_flagman(),
   NProc = erlang:system_info(schedulers_online),
   ?check_trace(#{timetrap => 30000},
                begin
@@ -201,16 +211,15 @@ lc_flagman_flag_onoff(Config) ->
                    ?assertEqual({true, false}, Result),
 
                    ?strict_causality(
-                      #{?snk_kind := lc_flagman, event := flag_on},
-                      #{?snk_kind := lc_flagman, event := flag_off},
+                      #{?snk_kind := lc_runq, event := flag_on},
+                      #{?snk_kind := lc_runq, event := flag_off},
                       Trace
                      )
                end).
 
-lc_flagman_recover({init, Config}) ->
+lc_runq_recover({init, Config}) ->
   Config;
-lc_flagman_recover(_Config) ->
-  application:ensure_all_started(lc),
+lc_runq_recover(_Config) ->
   NProc = erlang:system_info(schedulers_online),
   ok = load_ctl:put_config(#{ ?RUNQ_MON_T1 => 500
                             , ?RUNQ_MON_T2 => 200
@@ -230,14 +239,12 @@ lc_flagman_recover(_Config) ->
                fun(Result, Trace) ->
                    ct:pal("Trace is ~p", [Trace]),
                    ?assertEqual({true, true}, Result),
-                   ?projection_complete(event, ?of_kind(lc_flagman, Trace),
+                   ?projection_complete(event, ?of_kind(lc_runq, Trace),
                                         [on_fire, flag_on, noop, cooldown_pending])
                end).
-
 lc_control_pg({init, Config}) ->
   Config;
 lc_control_pg(_Config) ->
-  application:ensure_all_started(lc),
   NProc = erlang:system_info(schedulers_online),
   ok = load_ctl:put_config(#{ ?RUNQ_MON_T1 => 500
                             , ?RUNQ_MON_T2 => 200
@@ -264,30 +271,47 @@ lc_control_pg(_Config) ->
                fun(Result, Trace) ->
                    ct:pal("Trace is ~p", [Trace]),
                    ?assertEqual({true, false, false, false, true}, Result),
-                   ?projection_complete(event, ?of_kind(lc_flagman, Trace),
+                   ?projection_complete(event, ?of_kind(lc_runq, Trace),
                                         [on_fire, flag_on, noop,
                                          kill_priority_groups
                                         ])
                end).
-lc_flagman_start_stop({init, Config}) ->
+
+lc_mem_flagman_start_stop({init, Config}) ->
   Config;
-lc_flagman_start_stop(_Config) ->
-  application:ensure_all_started(lc),
-  wait_for_runq_flagman(_Retry = 10),
+lc_mem_flagman_start_stop(_Config) ->
+  wait_for_flagman(flagman_mem, _Retry = 10),
+  ?assert(is_pid(load_ctl:whereis_mem_flagman())),
+  ok = load_ctl:stop_mem_flagman(10000),
+  %% improves coverage
+  ok = load_ctl:stop_mem_flagman(10000),
+  ?assertEqual(undefined, load_ctl:whereis_mem_flagman()),
+  {error, disabled} = load_ctl:restart_mem_flagman(),
+  Old = load_ctl:get_config(),
+  ok = load_ctl:put_config(Old#{ ?MEM_MON_F0 => true}),
+  {ok, Pid} = load_ctl:restart_mem_flagman(),
+  ?assertEqual(Pid, load_ctl:whereis_mem_flagman()),
+  ok.
+
+lc_runq_flagman_start_stop({init, Config}) ->
+  Config;
+lc_runq_flagman_start_stop(_Config) ->
+  wait_for_flagman(flagman_runq, _Retry = 10),
   ?assert(is_pid(load_ctl:whereis_runq_flagman())),
+  ok = load_ctl:stop_runq_flagman(10000),
+  %% improves coverage
   ok = load_ctl:stop_runq_flagman(10000),
   ?assertEqual(undefined, load_ctl:whereis_runq_flagman()),
   {error, disabled} = load_ctl:restart_runq_flagman(),
   Old = load_ctl:get_config(),
   ok = load_ctl:put_config(Old#{ ?RUNQ_MON_F0 => true}),
   {ok, Pid} = load_ctl:restart_runq_flagman(),
-  ?assertEqual(Pid, load_ctl:whereis_runq_flagman()),
-  ok.
+  ?assertEqual(Pid, load_ctl:whereis_runq_flagman()).
 
 lc_flagman_flagoff_after_stop({init, Config}) ->
   Config;
 lc_flagman_flagoff_after_stop(Config) ->
-  lc_flagman_recover(Config),
+  lc_runq_recover(Config),
   ?assert(load_ctl:is_overloaded()),
   ok = load_ctl:stop_runq_flagman(10000),
   %% we found unreg process takes time
@@ -295,35 +319,31 @@ lc_flagman_flagoff_after_stop(Config) ->
   ?assert(not load_ctl:is_overloaded()),
   ok.
 
-lc_flagman_leap_on({init, Config}) ->
-  application:ensure_all_started(lc),
+lc_runq_leap_on({init, Config}) ->
   [{ lc_config,  #{ ?RUNQ_MON_T1 => 1000
                   , ?RUNQ_MON_T2 => 500
                   , ?RUNQ_MON_C1 => 2
                   , ?RUNQ_MON_F5 => -1
                   }
    } | Config];
-lc_flagman_leap_on(Config) ->
-  application:ensure_all_started(lc),
-  lc_flagman_flag_onoff(Config).
+lc_runq_leap_on(Config) ->
+  lc_runq_flag_onoff(Config).
 
 
-lc_flagman_leap_off({init, Config}) ->
-  application:ensure_all_started(lc),
+lc_runq_leap_off({init, Config}) ->
   [{ lc_config,  #{ ?RUNQ_MON_T1 => 1000
                   , ?RUNQ_MON_T2 => 500
                   , ?RUNQ_MON_C1 => 3
                   , ?RUNQ_MON_F5 => 0
                   }
    } | Config];
-lc_flagman_leap_off(Config) ->
-  application:ensure_all_started(lc),
-  lc_flagman_flag_onoff(Config).
+lc_runq_leap_off(Config) ->
+  lc_runq_flag_onoff(Config).
 
 lc_maydely_1({init, Config}) ->
   Config;
 lc_maydely_1(Config) ->
-  lc_flagman_recover(Config),
+  lc_runq_recover(Config),
   StartTS = os:timestamp(),
   ?assertEqual(timeout, load_ctl:maydelay(2000)),
   ?assert(timer:now_diff(os:timestamp(), StartTS) < 2500000),
@@ -336,26 +356,97 @@ lc_alarm({init, Config}) ->
   Config;
 lc_alarm(Config) ->
   alarm_handler:start_link(),
-  lc_flagman_recover(Config),
-  [{?LC_ALARM_ID_RUNQ, #{node := Node, runq_length := QLen}}] = alarm_handler:get_alarms(),
-  ?assertEqual(Node, node()),
+  lc_runq_recover(Config),
+  #{node := Node, runq_length := QLen} =
+    proplists:get_value(?LC_ALARM_ID_RUNQ, alarm_handler:get_alarms()),
+  ?assertEqual(node(), Node),
   ?assert(QLen > 0),
   LConfig = load_ctl:get_config(),
   load_ctl:put_config(LConfig#{?RUNQ_MON_F2 => 0.5}),
   timer:sleep(5000),
-  ?assertMatch([], alarm_handler:get_alarms()),
+  ct:pal("checking_alarm..."),
+  ?assertEqual(undefined, proplists:get_value(?LC_ALARM_ID_RUNQ,
+                                              alarm_handler:get_alarms())),
   ok.
 
 lc_alarm2({init, Config}) ->
   Config;
 lc_alarm2(Config) ->
   alarm_handler:start_link(),
-  lc_flagman_recover(Config),
-  ?assertMatch([{?LC_ALARM_ID_RUNQ, _}], alarm_handler:get_alarms()),
+  lc_runq_recover(Config),
+  ?assertMatch(#{node := _, runq_length := _},
+               proplists:get_value(?LC_ALARM_ID_RUNQ, alarm_handler:get_alarms())),
   ok = load_ctl:stop_runq_flagman(10000),
   timer:sleep(100),
-  ?assertMatch([], alarm_handler:get_alarms()),
+  ?assertEqual(undefined,
+               proplists:get_value(?LC_ALARM_ID_RUNQ, alarm_handler:get_alarms())),
   ok.
+
+lc_mem({init, Config})->
+  Config;
+lc_mem(_Config) ->
+  ?assert(lc_lib:get_memory_usage() < ?MEM_MON_F1_DEFAULT),
+  ?check_trace(#{timetrap => 30000},
+               begin
+                 meck:new(lc_lib, [passthrough]),
+                 meck:expect(lc_lib, get_memory_usage,
+                             fun() -> ?MEM_MON_F1_DEFAULT + 0.01 end
+                            ),
+                 timer:sleep(?MEM_MON_T1_DEFAULT*2),
+                 Check1 = load_ctl:is_high_mem(),
+                 ?assert(load_ctl:is_high_mem()),
+                 meck:unload(lc_lib),
+                 timer:sleep(?MEM_MON_T1_DEFAULT*2),
+                 Check2 = load_ctl:is_high_mem(),
+                 {Check1, Check2}
+               end,
+               fun(Result, Trace) ->
+                   ct:pal("Trace is ~p", [Trace]),
+                   ?assertEqual({true, false}, Result),
+                   ?assert(?strict_causality(
+                              #{'$kind' := lc_flag_man
+                               , event := raise_flag},
+                              #{'$kind' := lc_flag_man
+                               , event := remove_flag},
+                              Trace)
+                          )
+               end).
+
+lc_mem_alarm({init, Config}) ->
+  Config;
+lc_mem_alarm(_Config) ->
+  ?assert(lc_lib:get_memory_usage() < ?MEM_MON_F1_DEFAULT),
+  meck:new(lc_lib, [passthrough]),
+  meck:expect(lc_lib, get_memory_usage,
+              fun() -> ?MEM_MON_F1_DEFAULT end
+             ),
+  timer:sleep(?MEM_MON_T1_DEFAULT*2),
+  ?assertMatch(#{mem_usage := ?MEM_MON_F1_DEFAULT},
+               proplists:get_value(?LC_ALARM_ID_MEM, alarm_handler:get_alarms())),
+  ?assert(load_ctl:is_high_mem()),
+  meck:unload(lc_lib),
+  timer:sleep(?MEM_MON_T1_DEFAULT*2),
+  ?assertEqual(undefined, proplists:get_value(?LC_ALARM_ID_MEM, alarm_handler:get_alarms())).
+
+lc_mem_check({init, Config}) ->
+  Config;
+lc_mem_check(_Config) ->
+  ?assert(lc_lib:get_memory_usage() > 0.0).
+
+lc_robustness({init, Config}) ->
+  Config;
+lc_robustness(_Config) ->
+  RPid = load_ctl:whereis_runq_flagman(),
+  MPid = load_ctl:whereis_mem_flagman(),
+  ?assert(is_pid(RPid)),
+  ?assert(is_pid(MPid)),
+  exit(RPid, kill),
+  exit(MPid, kill),
+  timer:sleep(100),
+  RPid1 = load_ctl:whereis_runq_flagman(),
+  MPid1 = load_ctl:whereis_mem_flagman(),
+  ?assert(is_pid(RPid1) andalso RPid1 =/= RPid),
+  ?assert(is_pid(MPid1) andalso MPid1 =/= MPid).
 
 %% internal helper
 worker_parent(N, {M, F, A}) ->
@@ -376,13 +467,13 @@ priority_loop(P) ->
       ct:pal("recv ~p", [Other])
   end.
 
-wait_for_runq_flagman(0) ->
+wait_for_flagman(_Flagman, 0) ->
   ct:fail(flagman_not_up);
-wait_for_runq_flagman(Retry) ->
-  case load_ctl:whereis_runq_flagman() of
+wait_for_flagman(Flagman, Retry) ->
+  case lc_sup:whereis_flagman(Flagman) of
     undefined ->
       timer:sleep(50),
-      wait_for_runq_flagman(Retry - 1);
+      wait_for_flagman(Flagman, Retry - 1);
     Pid ->
       Pid
   end.
