@@ -16,27 +16,22 @@
 
 -module(load_ctl).
 
--ignore_xref([ is_overloaded/0
-             , maydelay/1
-             , join/1
-             , leave/1
-             , whereis_runq_flagman/0
-             , stop_runq_flagman/0
-             , stop_runq_flagman/1
-             , restart_runq_flagman/0
-             ]).
-
 -include("lc.hrl").
 
 -export([ is_overloaded/0
+        , is_high_mem/0
         , maydelay/1
         , accompany/2
         , join/1
         , leave/1
         , whereis_runq_flagman/0
+        , whereis_mem_flagman/0
         , stop_runq_flagman/0
         , stop_runq_flagman/1
+        , stop_mem_flagman/0
+        , stop_mem_flagman/1
         , restart_runq_flagman/0
+        , restart_mem_flagman/0
         , put_config/1
         , get_config/0
         ]).
@@ -45,6 +40,11 @@
 -spec is_overloaded() -> boolean().
 is_overloaded() ->
   not (undefined =:= whereis(?RUNQ_MON_FLAG_NAME)).
+
+%% overload check for realtime processing
+-spec is_high_mem() -> boolean().
+is_high_mem() ->
+  not (undefined =:= whereis(?MEM_MON_FLAG_NAME)).
 
 -spec maydelay(timer:timeout()) -> ok | timeout | false.
 maydelay(Timeout) ->
@@ -83,9 +83,21 @@ stop_runq_flagman() ->
 stop_runq_flagman(Timeout) ->
   lc_sup:stop_runq_flagman(Timeout).
 
+-spec stop_mem_flagman() -> ok.
+stop_mem_flagman() ->
+  lc_sup:stop_mem_flagman(infinity).
+
+-spec stop_mem_flagman(timer:timeout()) -> ok | {error, timeout}.
+stop_mem_flagman(Timeout) ->
+  lc_sup:stop_mem_flagman(Timeout).
+
 -spec whereis_runq_flagman() -> pid() | undefined.
 whereis_runq_flagman() ->
   lc_sup:whereis_runq_flagman().
+
+-spec whereis_mem_flagman() -> pid() | undefined.
+whereis_mem_flagman() ->
+  lc_sup:whereis_mem_flagman().
 
 -spec restart_runq_flagman() -> {ok, pid()} | {error, running | restarting | disabled}.
 restart_runq_flagman() ->
@@ -94,6 +106,15 @@ restart_runq_flagman() ->
       {error, disabled};
     _ ->
       lc_sup:restart_runq_flagman()
+  end.
+
+-spec restart_mem_flagman() -> {ok, pid()} | {error, running | restarting | disabled}.
+restart_mem_flagman() ->
+  case get_config() of
+    #{?MEM_MON_F0 := false} ->
+      {error, disabled};
+    _ ->
+      lc_sup:restart_mem_flagman()
   end.
 
 -spec get_config() -> map().
@@ -109,6 +130,10 @@ get_config() ->
        , ?RUNQ_MON_T1 => ?RUNQ_MON_T1_DEFAULT
        , ?RUNQ_MON_T2 => ?RUNQ_MON_T2_DEFAULT
        , ?RUNQ_MON_C1 => ?RUNQ_MON_C1_DEFAULT
+
+       , ?MEM_MON_F0 => ?MEM_MON_F0_DEFAULT
+       , ?MEM_MON_F1 => ?MEM_MON_F1_DEFAULT
+       , ?MEM_MON_T1 => ?MEM_MON_T1_DEFAULT
        };
     Other ->
       Other
@@ -123,6 +148,10 @@ filter_config(Config) ->
             , ?RUNQ_MON_T1
             , ?RUNQ_MON_T2
             , ?RUNQ_MON_C1
+
+            , ?MEM_MON_F0
+            , ?MEM_MON_F1
+            , ?MEM_MON_T1
             ], Config).
 
 -spec accompany(atom() | pid(), timer:timeout()) -> ok | {error, timeout}.

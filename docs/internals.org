@@ -1,13 +1,13 @@
 #+TITLE: internals
 #+OPTIONS: toc:nil ^:nil
 
-* flagman
+* Runq Flagman
 ** Overall
-*flagman* is a long-living, supervised process which only monitors the system [[runq][runq]] and ensures [[actions][actions]] are taken when conditions are met.
+*runq flagman* is a long-living, supervised process which only monitors the system [[runq][runq]] and ensures [[actions][actions]] are taken when conditions are met.
 
 By design, the process runs as high priority and avoids communicating with other processes.
 
-*flagman* can also take its own scheduling roundtrip time into a factor ([[F5][F5]]) to speed up the detection of system overload.
+*runq flagman* can also take its own scheduling roundtrip time into a factor ([[F5][F5]]) to speed up the detection of system overload.
 This is done by taking timestamps when it is off and on the scheduler to check if there is a time leap. If the gap is large enough
 that is a sign that VM has very limited resources on scheduling.
 
@@ -82,6 +82,22 @@ warm: kill low priority processes when Credit / C1 * 100 < F4
 
 #+RESULTS:
 [[file:flagman_fsm.png]]
+
+* Memory Flagman
+
+Similar to *Runq Flagman*, *Memory Flagman* monitors the system memory usage every [[MEMT1][T1]] from
+- /proc/meminfo
+- /sys/fs/cgroup/
+
+Once it is over threshold [[MEMF1][F1]], it rasies the flag and alarm.
+
+** config parameters
+| parm name   | type      | default | comments                                                                                               |
+|-------------+-----------+---------+--------------------------------------------------------------------------------------------------------|
+| F0<<MEMF0>> | boolean() |    true | Set it to false to disable the flagman. To reenable, you should call ~load_ctl:restart_mem_flagman/0~. |
+| F1<<MEMF1>> | float()   |    0.75 | memory threshold when flag should be raised                                                            |
+| T1<<MEMT1>> | integer() |    1000 | Check interval in ms                                                                                   |
+
 
 * KILL [Dropped Idea] runq monitor
 The main reason I drop this idea is that there seems no any benefit to make it a gen_statm

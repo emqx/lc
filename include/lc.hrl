@@ -18,12 +18,16 @@
 -define(LC_HRL, true).
 
 -define(LC_ALARM_ID_RUNQ, lc_runq_alarm).
+-define(LC_ALARM_ID_MEM,  lc_mem_alarm).
 
 -define(LC_SCOPE, '_lc_scope_').
 -define(LC_GROUP, '_lc_group_').
 
 %% runq overload flag name
 -define(RUNQ_MON_FLAG_NAME, '_lc_flag_runq_').
+
+%% high mem pressure flag name
+-define(MEM_MON_FLAG_NAME, '_lc_flag_mem_').
 
 %% configs
 -define(FLAG_MAN_CONFIGS_TERM, '_lc_flagman_configs_').
@@ -66,5 +70,16 @@
 %% credit
 -define(RUNQ_MON_C1, run_queue_c1).
 -define(RUNQ_MON_C1_DEFAULT, 3).
+
+
+-define(MEM_MON_F0, memory_check_enabled).
+-define(MEM_MON_F0_DEFAULT, true).
+
+-define(MEM_MON_F1, memory_threshold).
+-define(MEM_MON_F1_DEFAULT, 0.75).
+
+%% mem usage probe inteval (ms)
+-define(MEM_MON_T1, memory_t1).
+-define(MEM_MON_T1_DEFAULT, 1000).
 
 -endif. %% LC_HRL
