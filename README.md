@@ -1,8 +1,12 @@
 # load control erlang application
 
-This is a helper application to enable load control on the erlang node.
+This is a helper application to enable load control on the erlang node with minimal overhead.
 
 The application interface module is the *load_ctl** module, all API calls should go through it.
+
+It monitors:
+- Length of erlang run queue
+- System memory utilization
 
 # APIs
 
@@ -12,9 +16,21 @@ The application interface module is the *load_ctl** module, all API calls should
 load_ctl:is_overloaded() -> boolean().
 ```
 
-returns true when the system is overloaded.
+returns true when the system is overloaded due to long erlang run queue.
 
-Ideal for checking in realtime workloads, like before spawning the new process to handle new incoming connection. If the system is overloaded, the new connection could be closed/rejected thus peer client could retry with other nodes in the same cluster. The existing connections/work are kept and service quality (latency, throughput) could be assured. 
+Ideal for checking in realtime workloads, like before spawning the new process to handle new incoming connections. If the system is overloaded, the new connection could be closed/rejected thus peer client could retry with other nodes in the same cluster. The existing connections/work are kept and service quality (latency, throughput) could be assured.
+
+This check is cheap.
+
+## is_high_mem
+
+``` erlang
+load_ctl:is_high_mem() -> boolean().
+```
+Returns true if memory usage is high (over threshold).
+The memory usage is read from /proc/meminfo or linux cgroup fs mount if process runs in the container.
+
+This check is cheap.
 
 ## maydelay
 
@@ -59,19 +75,24 @@ flagman starts when the application is started.
 It can be temptory disabled:
 
 ``` erlang
-load_ctl:stop_runq_flagman() -> ok. 
+%% for runq flagman
+load_ctl:stop_runq_flagman() -> ok.
+
+%% for memory flagman
+load_ctl:stop_mem_flagman() -> ok.
+
 %% Or with a TIMEOUT
 load_ctl:stop_runq_flagman(timer:timeout()) -> {error, timeout} | ok.
-
+load_ctl:stop_mem_flagman(timer:timeout()) -> {error, timeout} | ok.
 ```
 
 It can be restarted after disabled:
 
 ``` erlang
 load_ctl:restart_runq_flagman() -> ok.
-```
 
-note, in current version only runq is monitored.
+load_ctl:restart_mem_flagman() -> ok.
+```
 
 ## Configuration
 
@@ -97,6 +118,15 @@ Once the system is overloaded, alarm **lc_runq_alarm** is raised via *alarm_hand
 #{ node % node()
  , runq_length  %% runq len when triggered
  } 
+ 
+```
+
+Once the system has high memory usage, **lc_mem_alarm** is raised with alarm info as following
+
+``` erlang
+#{ node % node() 
+ , mem_usage %% float(), memory usage when alarm is raised. 
+ }
 ```
 
 The alarm is cleared when the system is cool or the flagman is stopped.
