@@ -62,7 +62,13 @@ end_per_suite(_Config) ->
 %% Reason = term()
 %% @end
 %%--------------------------------------------------------------------
-init_per_group(_GroupName, Config) ->
+init_per_group(GroupName, Config) ->
+  case GroupName of
+    no_os_mon ->
+      application:stop(os_mon);
+    os_mon ->
+      application:ensure_all_started(os_mon)
+  end,
   Config.
 
 %%--------------------------------------------------------------------
@@ -115,7 +121,9 @@ end_per_testcase(_TestCase, _Config) ->
 %% @end
 %%--------------------------------------------------------------------
 groups() ->
-  [].
+  [ {os_mon, [], tcs()}
+  , {no_os_mon, [], tcs()}
+  ].
 
 %%--------------------------------------------------------------------
 %% @spec all() -> GroupsAndTestCases | {skip,Reason}
@@ -126,25 +134,30 @@ groups() ->
 %% @end
 %%--------------------------------------------------------------------
 all() ->
-  [ lc_app_start
-  , lc_app_stop
-  , lc_runq_noop
-  , lc_runq_flag_onoff
-  , lc_runq_leap_on
-  , lc_runq_leap_off
-  , lc_runq_recover
-  , lc_control_pg
-  , lc_flagman_flagoff_after_stop
-  , lc_maydely_1
-  , lc_runq_flagman_start_stop
-  , lc_mem_flagman_start_stop
-  , lc_alarm
-  , lc_alarm2
-  , lc_mem
-  , lc_mem_alarm
-  , lc_mem_check
-  , lc_robustness
+  [
+    {group, os_mon}
+  , {group, no_os_mon}
   ].
+
+tcs()->  [ lc_app_start
+         , lc_app_stop
+         , lc_runq_noop
+         , lc_runq_flag_onoff
+         , lc_runq_leap_on
+         , lc_runq_leap_off
+         , lc_runq_recover
+         , lc_control_pg
+         , lc_flagman_flagoff_after_stop
+         , lc_maydely_1
+         , lc_runq_flagman_start_stop
+         , lc_mem_flagman_start_stop
+         , lc_alarm
+         , lc_alarm2
+         , lc_mem
+         , lc_mem_alarm
+         , lc_mem_check
+         , lc_robustness
+         ].
 
 %%--------------------------------------------------------------------
 %% @spec TestCase(Config0) ->
