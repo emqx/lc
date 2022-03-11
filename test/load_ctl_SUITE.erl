@@ -139,25 +139,26 @@ all() ->
   , {group, no_os_mon}
   ].
 
-tcs()->  [ lc_app_start
-         , lc_app_stop
-         , lc_runq_noop
-         , lc_runq_flag_onoff
-         , lc_runq_leap_on
-         , lc_runq_leap_off
-         , lc_runq_recover
-         , lc_control_pg
-         , lc_flagman_flagoff_after_stop
-         , lc_maydely_1
-         , lc_runq_flagman_start_stop
-         , lc_mem_flagman_start_stop
-         , lc_alarm
-         , lc_alarm2
-         , lc_mem
-         , lc_mem_alarm
-         , lc_mem_check
-         , lc_robustness
-         ].
+tcs() ->
+  [ lc_app_start
+  , lc_app_stop
+  , lc_runq_noop
+  , lc_runq_flag_onoff
+  , lc_runq_leap_on
+  , lc_runq_leap_off
+  , lc_runq_recover
+  , lc_control_pg
+  , lc_flagman_flagoff_after_stop
+  , lc_maydely_1
+  , lc_runq_flagman_start_stop
+  , lc_mem_flagman_start_stop
+  , lc_alarm
+  , lc_alarm2
+  , lc_mem
+  , lc_mem_alarm
+  , lc_mem_check
+  , lc_robustness
+  ].
 
 %%--------------------------------------------------------------------
 %% @spec TestCase(Config0) ->

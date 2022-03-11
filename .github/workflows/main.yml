@@ -17,3 +17,9 @@ jobs:
           otp-version: ${{ matrix.otp }}
       - run: |
           make
+      - name: Archive CT Logs
+        uses: actions/upload-artifact@v2
+        with:
+          name: ct-logs
+          path: _build/test/
+          retention-days: 1
