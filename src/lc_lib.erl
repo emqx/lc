@@ -18,6 +18,7 @@
 -export([ get_memory_usage/0
         , get_sys_memory_usage/0
         , get_cgroup_memory_usage/0
+        , get_cgroup2_memory_usage/0
         , configs/0
         , config_get/2
         , config_get/3
@@ -28,7 +29,10 @@
 get_memory_usage()->
   case os:type() of
     {unix, linux} ->
-      max(get_sys_memory_usage(), get_cgroup_memory_usage());
+      lists:max([get_sys_memory_usage(),
+                 get_cgroup_memory_usage(),
+                 get_cgroup2_memory_usage()
+                ]);
     _ ->
       get_sys_memory_usage()
   end.
@@ -91,6 +95,20 @@ get_cgroup_memory_usage() ->
       0
   end.
 
+-spec get_cgroup2_memory_usage() -> number().
+get_cgroup2_memory_usage() ->
+  try
+    CgroupUsed = read_int_fs(filename:join(["/sys/fs/cgroup/",
+                                            "memory.current"])
+                            ),
+    CgroupTotal = read_int_fs(filename:join(["/sys/fs/cgroup/",
+                                             "memory.max"])),
+    CgroupUsed/CgroupTotal
+  catch
+    error:_ ->
+      0
+  end.
+
 -spec read_int_fs(filelib:filename()) -> non_neg_integer() | error.
 read_int_fs(Path) ->
   try
@@ -98,6 +116,8 @@ read_int_fs(Path) ->
     Str = binary:bin_to_list(Bin),
     case lists:suffix("\n", Str) of
       true ->
+        %% for cgroup2 we will get "max" which means unlimited
+        %% and it is ok to let it throw error here
         list_to_integer(string:strip(Str, right, $\n));
       false ->
         %% We get incomplete data
