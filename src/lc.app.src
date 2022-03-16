@@ -15,7 +15,7 @@
 %%--------------------------------------------------------------------
 {application, lc,
  [{description, "load control app"},
-  {vsn, "0.0.1"},
+  {vsn, "git"},
   {registered, []},
   {mod, {lc_app, []}},
   {applications,
@@ -24,7 +24,8 @@
    ]},
   {env,[]},
   {modules, []},
-
+  {links, [{"Github", "https://github.com/emqx/lc"}]},
+  {maintainers, []},
   {licenses, ["Apache 2.0"]},
   {links, []}
  ]}.
