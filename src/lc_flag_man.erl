@@ -44,7 +44,11 @@
 -export([ start_link/1
         , init/1
         , flag_man_loop/1
+        , flag_loop/2
+        , flag_main/3
         ]).
+
+-define(CATCH(EXPR), try EXPR catch _:_ -> ok end).
 
 -include_lib("snabbkaffe/include/snabbkaffe.hrl").
 
@@ -57,7 +61,7 @@ init(#{callback:=Callback} = S0) ->
   process_flag(message_queue_data, off_heap),
   proc_lib:init_ack({ok, self()}),
   InitState = Callback:init(S0),
-  catch alarm_handler:clear_alarm(maps:get(alarm_name, InitState)),
+  ?CATCH(alarm_handler:clear_alarm(maps:get(alarm_name, InitState))),
   flag_man_loop(InitState).
 
 flag_man_loop(#{callback := Callback} = State0) ->
@@ -66,7 +70,6 @@ flag_man_loop(#{callback := Callback} = State0) ->
   erlang:yield(),
   timer:sleep(DelayMs),
   ?MODULE:flag_man_loop(NewState).
-
 
 -spec handle_flag(New::map(), Old::map()) -> ok | skip.
 handle_flag(#{ is_flagged := true} = NewState,
@@ -91,20 +94,11 @@ raise_flag(FlagName, AlarmName, AlarmData) ->
   Owner = self(),
   case whereis(FlagName) of
     undefined ->
-      spawn_link(fun() ->
-                     register(FlagName, self()),
-                     MRef = erlang:monitor(process, Owner),
-                     receive
-                       stop -> ok;
-                       {'DOWN', MRef, process, _, _} ->
-                         ok
-                     end,
-                     catch alarm_handler:clear_alarm(AlarmName)
-                 end);
+      spawn_link(?MODULE, flag_main, [Owner, FlagName, AlarmName]);
     Pid ->
       Pid
   end,
-  catch alarm_handler:set_alarm({AlarmName, AlarmData#{node => node()}}),
+  ?CATCH(alarm_handler:set_alarm({AlarmName, AlarmData#{node => node()}})),
   ok.
 
 -spec remove_flag(FLAG::atom()) -> ok.
@@ -112,11 +106,29 @@ remove_flag(Flag) ->
   ?tp(debug, ?MODULE, #{event => remove_flag, item => Flag}),
   case whereis(Flag) of
     undefined -> ok;
-    Pid when is_pid(Pid)
-             -> Pid ! stop
+    Pid when is_pid(Pid) ->
+          Pid ! stop
   end,
   ok.
 
+flag_main(Owner, FlagName, AlarmName) ->
+    register(FlagName, self()),
+    MRef = erlang:monitor(process, Owner),
+    flag_loop(MRef, AlarmName).
+
+flag_loop(OwnerMref, AlarmName) ->
+    receive
+        stop ->
+            ?CATCH(alarm_handler:clear_alarm(AlarmName));
+        {'DOWN', OwnerMref, process, _, _} ->
+            ?CATCH(alarm_handler:clear_alarm(AlarmName));
+        _ ->
+            %% ignore unknown messages
+            ?MODULE:flag_loop(OwnerMref, AlarmName)
+    after 1000 ->
+        %% ensure the flag porcess can enter new version beam
+        ?MODULE:flag_loop(OwnerMref, AlarmName)
+    end.
 
 %%%_* Emacs ====================================================================
 %%% Local Variables:
