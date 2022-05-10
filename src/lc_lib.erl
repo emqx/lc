@@ -16,26 +16,37 @@
 -module(lc_lib).
 
 -export([ get_memory_usage/0
-        , get_sys_memory_usage/0
-        , get_cgroup_memory_usage/0
-        , get_cgroup2_memory_usage/0
+        , get_sys_memory/0
         , configs/0
         , config_get/2
         , config_get/3
         ]).
 
+%% hidden export
+-export([ get_sys_memory_usage/0
+        , get_cgroup_memory_usage/0
+        , get_cgroup2_memory_usage/0
+        ]).
 
--spec get_memory_usage() -> number().
-get_memory_usage()->
+%% @doc Return RAM usage ratio and total number of bytes.
+%% `{0, 0}' indicates an error in collecting the stats.
+-spec get_sys_memory() -> {number(), number()}.
+get_sys_memory() ->
   case os:type() of
     {unix, linux} ->
-      lists:max([get_sys_memory_usage(),
-                 get_cgroup_memory_usage(),
-                 get_cgroup2_memory_usage()
-                ]);
-    _ ->
-      get_sys_memory_usage()
+          lists:max([do_get_sys_memory_usage(),
+                     do_get_cgroup_memory_usage(),
+                     do_get_cgroup2_memory_usage()]);
+      _ ->
+          do_get_sys_memory_usage()
   end.
+
+%% @doc Return RAM usage ratio (from 0 to 1).
+%% `0' probably indicates an error in collecting the stats.
+-spec get_memory_usage() -> number().
+get_memory_usage()->
+    {Ratio, _} = get_sys_memory(),
+    Ratio.
 
 -spec config_get(atom(), any()) -> any().
 config_get(Name, Default)->
@@ -50,20 +61,25 @@ configs() ->
 
 -spec get_sys_memory_usage() -> number().
 get_sys_memory_usage() ->
+  {Ratio, _Total} = do_get_sys_memory_usage(),
+  Ratio.
+
+do_get_sys_memory_usage() ->
   try
     IsMemSup = is_pid(whereis(memsup)),
     do_get_sys_memory_usage(IsMemSup)
   catch _:_ ->
-      0
+    {0, 0}
   end.
 
 do_get_sys_memory_usage(true)->
   Data = memsup:get_system_memory_data(),
   Avail = proplists:get_value(available_memory, Data),
   Total = proplists:get_value(total_memory, Data),
-  1 - (Avail/Total);
+  Used = Total - Avail,
+  {Used / Total, Used};
 do_get_sys_memory_usage(_) ->
-  0.
+  {0, 0}.
 
 get_cgroup_path(Name) ->
   {ok, Lines} = file:read_file("/proc/self/cgroup"),
@@ -82,6 +98,10 @@ get_cgroup_by_name([H|T], Name) ->
 
 -spec get_cgroup_memory_usage() -> number().
 get_cgroup_memory_usage() ->
+    {Ratio, _Total} = do_get_cgroup_memory_usage(),
+    Ratio.
+
+do_get_cgroup_memory_usage() ->
   try
     Path = get_cgroup_path(<<"memory">>),
     CgroupUsed = read_int_fs(filename:join(["/sys/fs/cgroup/",
@@ -89,24 +109,26 @@ get_cgroup_memory_usage() ->
                             ),
     CgroupTotal = read_int_fs(filename:join(["/sys/fs/cgroup/",
                                              memory, Path, "memory.limit_in_bytes"])),
-    CgroupUsed/CgroupTotal
-  catch
-    error:_ ->
-      0
+    {CgroupUsed/CgroupTotal, CgroupTotal}
+  catch error:_ ->
+    {0, 0}
   end.
 
 -spec get_cgroup2_memory_usage() -> number().
 get_cgroup2_memory_usage() ->
+    {Ratio, _Total} = do_get_cgroup2_memory_usage(),
+    Ratio.
+
+do_get_cgroup2_memory_usage() ->
   try
     CgroupUsed = read_int_fs(filename:join(["/sys/fs/cgroup/",
                                             "memory.current"])
                             ),
     CgroupTotal = read_int_fs(filename:join(["/sys/fs/cgroup/",
                                              "memory.max"])),
-    CgroupUsed/CgroupTotal
-  catch
-    error:_ ->
-      0
+    {CgroupUsed/CgroupTotal, CgroupTotal}
+  catch error:_ ->
+    {0, 0}
   end.
 
 -spec read_int_fs(filelib:filename()) -> non_neg_integer() | error.
@@ -121,9 +143,8 @@ read_int_fs(Path) ->
         list_to_integer(string:strip(Str, right, $\n));
       false ->
         %% We get incomplete data
-        error
+        error(incomplete_data)
     end
-  catch error:_:_ ->
-      error
+  catch error : _ ->
+      error(faild_to_parse)
   end.
-

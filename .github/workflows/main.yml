@@ -17,6 +17,8 @@ jobs:
           otp-version: ${{ matrix.otp }}
       - run: |
           make
+          # ensure syntax is OK
+          erl -noshell -eval '{ok, _} = file:consult("src/lc.appup.src"), halt(0).'
       - name: Archive CT Logs
         uses: actions/upload-artifact@v2
         with:

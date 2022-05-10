@@ -34,6 +34,8 @@
         , restart_mem_flagman/0
         , put_config/1
         , get_config/0
+        , get_memory_usage/0
+        , get_sys_memory/0
         ]).
 
 %% overload check for realtime processing
@@ -163,6 +165,18 @@ accompany(Target, Timeout) ->
       erlang:demonitor(Mref, [flush]),
       {error, timeout}
   end.
+
+%% @doc Return RAM usage ratio and total number of bytes.
+%% `{0, 0}' indicates an error in collecting the stats.
+-spec get_memory_usage() -> number().
+get_memory_usage() ->
+    lc_lib:get_memory_usage().
+
+%% @doc Return RAM usage ratio (from 0 to 1).
+%% `0' probably indicates an error in collecting the stats.
+-spec get_sys_memory() -> {number(), number()}.
+get_sys_memory() ->
+    lc_lib:get_sys_memory().
 
 %%%_* Emacs ====================================================================
 %%% Local Variables:
