@@ -1,13 +1,25 @@
 %% -*- mode: erlang -*-
-{"0.2.1",
+{"0.3.0",
    [
+     {"0.2.1", [
+       {load_module, load_ctl, brutal_purge, soft_purge, []},
+       {load_module, lc_lib, brutal_purge, soft_purge, []}
+     ]},
      {"0.2.0", [
+       {load_module, load_ctl, brutal_purge, soft_purge, []},
+       {load_module, lc_lib, brutal_purge, soft_purge, []},
        {load_module, lc_flag_man, brutal_purge, soft_purge, []}
      ]},
      {<<".*">>, []}
    ],
    [
+     {"0.2.1", [
+       {load_module, load_ctl, brutal_purge, soft_purge, []},
+       {load_module, lc_lib, brutal_purge, soft_purge, []}
+     ]},
      {"0.2.0", [
+       {load_module, load_ctl, brutal_purge, soft_purge, []},
+       {load_module, lc_lib, brutal_purge, soft_purge, []},
        {load_module, lc_flag_man, brutal_purge, soft_purge, []}
      ]},
      {<<".*">>, []}
