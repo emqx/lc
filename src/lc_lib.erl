@@ -74,7 +74,7 @@ do_get_sys_memory_usage() ->
 
 do_get_sys_memory_usage(true)->
   Data = memsup:get_system_memory_data(),
-  Avail = proplists:get_value(available_memory, Data),
+  Avail = resolve_available_mem(Data),
   Total = proplists:get_value(total_memory, Data),
   Used = Total - Avail,
   {Used / Total, Used};
@@ -148,3 +148,21 @@ read_int_fs(Path) ->
   catch error : _ ->
       error(faild_to_parse)
   end.
+
+%% From OTP doc for `available_memory':
+%% This value is currently only present on newer Linux kernels.
+%% If this value is not available on Linux,
+%% you can use the sum of cached_memory, buffered_memory,
+%% and free_memory as an approximation.
+resolve_available_mem(Data) ->
+  case proplists:get_value(available_memory, Data) of
+    V when is_integer(V) ->
+      V;
+    _ ->
+      calculate_available_mem(Data)
+  end.
+
+calculate_available_mem(Data) ->
+  proplists:get_value(cached_memory, Data, 0) +
+  proplists:get_value(buffered_memory, Data, 0) +
+  proplists:get_value(free_memory, Data, 0).
