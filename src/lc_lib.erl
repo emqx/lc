@@ -77,7 +77,7 @@ do_get_sys_memory_usage(true)->
   Avail = resolve_available_mem(Data),
   Total = proplists:get_value(total_memory, Data),
   Used = Total - Avail,
-  {Used / Total, Used};
+  {Used / Total, Total};
 do_get_sys_memory_usage(_) ->
   {0, 0}.
 
