@@ -34,3 +34,6 @@ dialyzer:
 
 xref:
 	rebar3 xref
+
+hex-publish:
+	rebar3 hex publish package

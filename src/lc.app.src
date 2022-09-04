@@ -26,6 +26,6 @@
   {modules, []},
   {links, [{"Github", "https://github.com/emqx/lc"}]},
   {maintainers, []},
-  {licenses, ["Apache 2.0"]},
+  {licenses, ["Apache-2.0"]},
   {links, []}
  ]}.
