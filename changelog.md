@@ -1,3 +1,6 @@
+# 0.3.2
+- Publish to hex, no diff in Erlang code
+
 # 0.3.1
 - Fix return value: should return ratio and total (but not used)
 - Calculate available memory (from sum of `cached_memory`, `buffered_memory` and `free_memory`) when `available_memory` is not supported.
