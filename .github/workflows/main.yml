@@ -15,10 +15,10 @@ jobs:
       - uses: gleam-lang/setup-erlang@v1.1.2
         with:
           otp-version: ${{ matrix.otp }}
-      - run: |
-          make
-          # ensure syntax is OK
-          erl -noshell -eval '{ok, _} = file:consult("src/lc.appup.src"), halt(0).'
+      - name: Ensure version consistency
+        run: ./check_vsns.escript
+      - name: Compile and test
+        run: make
       - name: Archive CT Logs
         uses: actions/upload-artifact@v2
         with:

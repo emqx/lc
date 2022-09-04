@@ -15,7 +15,7 @@
 %%--------------------------------------------------------------------
 {application, lc,
  [{description, "load control app"},
-  {vsn, "git"},
+  {vsn, "0.3.2"},
   {registered, []},
   {mod, {lc_app, []}},
   {applications,
