@@ -1,6 +1,8 @@
 %% -*- mode: erlang -*-
-{"0.3.1",
+{"0.3.2",
    [
+     {"0.3.1", [ %% no beam change
+     ]},
      {"0.3.0", [
        {load_module, load_ctl, brutal_purge, soft_purge, []},
        {load_module, lc_lib, brutal_purge, soft_purge, []}
@@ -22,6 +24,8 @@
      {<<".*">>, []}
    ],
    [
+     {"0.3.1", [ %% no beam change
+     ]},
      {"0.3.0", [
        {load_module, load_ctl, brutal_purge, soft_purge, []},
        {load_module, lc_lib, brutal_purge, soft_purge, []}
