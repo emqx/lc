@@ -157,6 +157,7 @@ tcs() ->
   , lc_mem
   , lc_mem_alarm
   , lc_mem_check
+  , lc_mem_cache_check
   , lc_robustness
   ].
 
@@ -446,6 +447,33 @@ lc_mem_check({init, Config}) ->
   Config;
 lc_mem_check(_Config) ->
   ?assert(lc_lib:get_memory_usage() > 0.0).
+
+lc_mem_cache_check({init, Config}) ->
+  Config;
+lc_mem_cache_check(_Config) ->
+  ?assertMatch({_, _}, load_ctl:get_sys_memory(2000)),
+  InitMem = 17179869184,
+  InitUtil = 0.977987,
+  persistent_term:put(fake_memory, InitMem),
+  meck:new(lc_lib, [passthrough]),
+  meck:expect(lc_lib, get_sys_memory,
+    fun() ->
+      timer:sleep(?MEM_MON_T1_DEFAULT + 1),
+      Mem = persistent_term:get(fake_memory),
+      CurrMem = Mem + 1,
+      persistent_term:put(fake_memory, CurrMem),
+      {InitUtil, CurrMem}
+    end
+  ),
+  %% not timeout return real value
+  ?assertEqual({InitUtil, InitMem + 1}, load_ctl:get_sys_memory(?MEM_MON_T1_DEFAULT + 200)),
+  %% timeout then return cached value
+  ?assertEqual({InitUtil, InitMem + 1}, load_ctl:get_sys_memory(?MEM_MON_T1_DEFAULT)),
+  timer:sleep(?MEM_MON_T1_DEFAULT + 1),
+  %% timeout again then return cached(updated) value
+  ?assertEqual({InitUtil, InitMem + 2}, load_ctl:get_sys_memory(?MEM_MON_T1_DEFAULT)),
+  meck:unload(lc_lib),
+  ok.
 
 lc_robustness({init, Config}) ->
   Config;

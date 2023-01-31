@@ -1,3 +1,6 @@
+# 0.4.0
+- Add `load_ctl:get_system_memory/1` function to get system memory information with timeout.
+
 # 0.3.2
 - Publish to hex, no diff in Erlang code
 
@@ -7,4 +10,3 @@
 
 # 0.3.0
 - Add APIs which return both ratio and total RAM
-

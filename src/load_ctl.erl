@@ -36,6 +36,7 @@
         , get_config/0
         , get_memory_usage/0
         , get_sys_memory/0
+        , get_sys_memory/1
         ]).
 
 %% overload check for realtime processing
@@ -174,9 +175,17 @@ get_memory_usage() ->
 
 %% @doc Return RAM usage ratio (from 0 to 1).
 %% `0' probably indicates an error in collecting the stats.
+%% Never timeout.
 -spec get_sys_memory() -> {number(), number()}.
 get_sys_memory() ->
     lc_lib:get_sys_memory().
+
+%% @doc Return RAM usage ratio (from 0 to 1).
+%% `0' probably indicates an error in collecting the stats.
+%% It will return the last cache value when timeout.
+-spec get_sys_memory(timer:timeout()) -> {number(), number()}.
+get_sys_memory(Timeout) when is_integer(Timeout) ->
+   lc_cache:get_sys_memory(Timeout).
 
 %%%_* Emacs ====================================================================
 %%% Local Variables:

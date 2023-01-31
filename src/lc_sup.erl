@@ -114,6 +114,11 @@ init([]) ->
                  , start => {pg, start_link, [?LC_SCOPE]}
                  , restart => permanent
                  , type => worker
+                 },
+                #{ id => lc_cache
+                 , start => {lc_cache, start_link, []}
+                 , restart => permanent
+                 , type => worker
                  }
                ],
   {ok, {SupFlags, ChildSpecs}}.
