@@ -90,7 +90,7 @@ get_cgroup_by_name([], _Name) ->
   "";
 get_cgroup_by_name([H|T], Name) ->
   case binary:split(H, <<":">>, [global]) of
-    [_, Name, << $/, Path >>] ->
+    [_, Name, << $/, Path/binary >>] ->
       Path;
     _ ->
       get_cgroup_by_name(T, Name)
@@ -166,3 +166,14 @@ calculate_available_mem(Data) ->
   proplists:get_value(cached_memory, Data, 0) +
   proplists:get_value(buffered_memory, Data, 0) +
   proplists:get_value(free_memory, Data, 0).
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+get_cgroup_by_name_test_() ->
+  In1 = [<<"8:memory:/kubepods.slice/kubepods-pod47f7b13a_7b34_454d_81cd_9f06cf68ffd3.slice/cri-containerd-261ebed2f68c8399165b5ed5d6ecb26cd470722f05429dc96915d373ceb3a1f1.scope">>],
+  In2 = [<<"8:memory:kubepods.slice/kubepods-pod47f7b13a_7b34_454d_81cd_9f06cf68ffd3.slice/cri-containerd-261ebed2f68c8399165b5ed5d6ecb26cd470722f05429dc96915d373ceb3a1f1.scope">>],
+  [?_assertEqual(<<"kubepods.slice/kubepods-pod47f7b13a_7b34_454d_81cd_9f06cf68ffd3.slice/cri-containerd-261ebed2f68c8399165b5ed5d6ecb26cd470722f05429dc96915d373ceb3a1f1.scope">>,
+                 get_cgroup_by_name(In1, <<"memory">>)),
+   ?_assertEqual([], get_cgroup_by_name(In2, <<"memory">>))
+  ].
+-endif.
