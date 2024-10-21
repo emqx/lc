@@ -27,6 +27,6 @@ jobs:
       - name: Archive CT Logs
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: ct-logs
+          name: ct-logs-${{ matrix.otp }}
           path: _build/test/
           retention-days: 1

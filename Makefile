@@ -24,7 +24,7 @@ co:
 	rebar3 compile
 
 test:
-	rebar3 do compile, ct
+	rebar3 do compile, eunit, ct
 
 static_checks:
 	rebar3 do dialyzer, xref
