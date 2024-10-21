@@ -131,7 +131,7 @@ do_get_cgroup2_memory_usage() ->
     {0, 0}
   end.
 
--spec read_int_fs(filelib:filename()) -> non_neg_integer() | error.
+-spec read_int_fs(file:name()) -> non_neg_integer() | error.
 read_int_fs(Path) ->
   try
     {ok, Bin} = file:read_file(Path),

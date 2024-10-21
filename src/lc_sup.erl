@@ -64,7 +64,7 @@ whereis_flagman(Child) ->
       undefined
   end.
 
--spec stop_runq_flagman(timer:timeout()) -> ok | {error, timeout}.
+-spec stop_runq_flagman(erlang:timeout()) -> ok | {error, timeout}.
 stop_runq_flagman(Timeout) ->
   Old = load_ctl:get_config(),
   ok = load_ctl:put_config(Old#{?RUNQ_MON_F0 => false}),
@@ -74,7 +74,7 @@ stop_runq_flagman(Timeout) ->
       load_ctl:accompany(Pid, Timeout)
   end.
 
--spec stop_mem_flagman(timer:timeout()) -> ok | {error, timeout}.
+-spec stop_mem_flagman(erlang:timeout()) -> ok | {error, timeout}.
 stop_mem_flagman(Timeout) ->
   Old = load_ctl:get_config(),
   ok = load_ctl:put_config(Old#{?MEM_MON_F0 => false}),
