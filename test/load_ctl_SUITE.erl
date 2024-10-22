@@ -443,6 +443,7 @@ lc_mem_alarm(_Config) ->
   ?assertEqual(undefined, proplists:get_value(?LC_ALARM_ID_MEM, alarm_handler:get_alarms())).
 
 lc_mem_check({init, Config}) ->
+  application:ensure_all_started(os_mon),
   Config;
 lc_mem_check(_Config) ->
   ?assert(lc_lib:get_memory_usage() > 0.0).

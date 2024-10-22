@@ -48,7 +48,7 @@ is_overloaded() ->
 is_high_mem() ->
   not (undefined =:= whereis(?MEM_MON_FLAG_NAME)).
 
--spec maydelay(timer:timeout()) -> ok | timeout | false.
+-spec maydelay(erlang:timeout()) -> ok | timeout | false.
 maydelay(Timeout) ->
   case is_overloaded() andalso accompany(?RUNQ_MON_FLAG_NAME, Timeout) of
     ok ->
@@ -81,7 +81,7 @@ put_config(_) ->
 stop_runq_flagman() ->
   lc_sup:stop_runq_flagman(infinity).
 
--spec stop_runq_flagman(timer:timeout()) -> ok | {error, timeout}.
+-spec stop_runq_flagman(erlang:timeout()) -> ok | {error, timeout}.
 stop_runq_flagman(Timeout) ->
   lc_sup:stop_runq_flagman(Timeout).
 
@@ -89,7 +89,7 @@ stop_runq_flagman(Timeout) ->
 stop_mem_flagman() ->
   lc_sup:stop_mem_flagman(infinity).
 
--spec stop_mem_flagman(timer:timeout()) -> ok | {error, timeout}.
+-spec stop_mem_flagman(erlang:timeout()) -> ok | {error, timeout}.
 stop_mem_flagman(Timeout) ->
   lc_sup:stop_mem_flagman(Timeout).
 
@@ -156,7 +156,7 @@ filter_config(Config) ->
             , ?MEM_MON_T1
             ], Config).
 
--spec accompany(atom() | pid(), timer:timeout()) -> ok | {error, timeout}.
+-spec accompany(atom() | pid(), erlang:timeout()) -> ok | {error, timeout}.
 accompany(Target, Timeout) ->
   Mref = erlang:monitor(process, Target),
   receive

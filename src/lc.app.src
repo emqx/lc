@@ -20,7 +20,10 @@
   {mod, {lc_app, []}},
   {applications,
    [kernel,
-    stdlib
+    stdlib,
+    os_mon,
+    sasl,
+    runtime_tools
    ]},
   {env,[]},
   {modules, []},
