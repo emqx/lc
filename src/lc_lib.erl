@@ -26,6 +26,7 @@
 -export([ get_sys_memory_usage/0
         , get_cgroup_memory_usage/0
         , get_cgroup2_memory_usage/0
+        , get_cgroup3_memory_usage/0
         ]).
 
 %% @doc Return RAM usage ratio and total number of bytes.
@@ -36,7 +37,8 @@ get_sys_memory() ->
     {unix, linux} ->
           lists:max([do_get_sys_memory_usage(),
                      do_get_cgroup_memory_usage(),
-                     do_get_cgroup2_memory_usage()]);
+                     do_get_cgroup2_memory_usage(),
+                     do_get_cgroup3_memory_usage()]);
       _ ->
           do_get_sys_memory_usage()
   end.
@@ -126,6 +128,23 @@ do_get_cgroup2_memory_usage() ->
                             ),
     CgroupTotal = read_int_fs(filename:join(["/sys/fs/cgroup/",
                                              "memory.max"])),
+    {CgroupUsed/CgroupTotal, CgroupTotal}
+  catch error:_ ->
+    {0, 0}
+  end.
+
+-spec get_cgroup3_memory_usage() -> number().
+get_cgroup3_memory_usage() ->
+  {Ratio, _Total} = do_get_cgroup3_memory_usage(),
+  Ratio.
+
+do_get_cgroup3_memory_usage() ->
+  try
+    CgroupUsed = read_int_fs(filename:join(["/sys/fs/cgroup/memory",
+      "memory.usage_in_bytes"])
+    ),
+    CgroupTotal = read_int_fs(filename:join(["/sys/fs/cgroup/memory",
+      "memory.limit_in_bytes"])),
     {CgroupUsed/CgroupTotal, CgroupTotal}
   catch error:_ ->
     {0, 0}
