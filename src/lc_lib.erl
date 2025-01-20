@@ -103,15 +103,23 @@ get_cgroup_memory_usage() ->
 
 do_get_cgroup_memory_usage() ->
   try
-    Path = get_cgroup_path(<<"memory">>),
-    CgroupUsed = read_int_fs(filename:join(["/sys/fs/cgroup/",
-                                            memory, Path, "memory.usage_in_bytes"])
-                            ),
-    CgroupTotal = read_int_fs(filename:join(["/sys/fs/cgroup/",
-                                             memory, Path, "memory.limit_in_bytes"])),
+    CgroupMem = "/sys/fs/cgroup/memory",
+    Paths = [filename:join([CgroupMem, get_cgroup_path(<<"memory">>)]),
+             CgroupMem],
+    CgroupPath = first_existing(Paths),
+    CgroupUsed = read_int_fs(filename:join([CgroupPath, "memory.usage_in_bytes"])),
+    CgroupTotal = read_int_fs(filename:join([CgroupPath, "memory.limit_in_bytes"])),
     {CgroupUsed/CgroupTotal, CgroupTotal}
   catch error:_ ->
     {0, 0}
+  end.
+
+first_existing([]) ->
+  error(none_exist);
+first_existing([H|T]) ->
+  case filelib:is_dir(H) of
+    true -> H;
+    _ -> first_existing(T)
   end.
 
 -spec get_cgroup2_memory_usage() -> number().
@@ -121,10 +129,14 @@ get_cgroup2_memory_usage() ->
 
 do_get_cgroup2_memory_usage() ->
   try
-    CgroupUsed = read_int_fs(filename:join(["/sys/fs/cgroup/",
+    Cgroup = "/sys/fs/cgroup",
+    Paths = [filename:join(Cgroup, get_cgroup_path(<<>>)),
+             Cgroup],
+    CgroupPath = first_existing(Paths),
+    CgroupUsed = read_int_fs(filename:join([CgroupPath,
                                             "memory.current"])
                             ),
-    CgroupTotal = read_int_fs(filename:join(["/sys/fs/cgroup/",
+    CgroupTotal = read_int_fs(filename:join([CgroupPath,
                                              "memory.max"])),
     {CgroupUsed/CgroupTotal, CgroupTotal}
   catch error:_ ->
