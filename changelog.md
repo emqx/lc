@@ -1,3 +1,12 @@
+# 0.3.5
+- Fix vsn in app.src
+
+# 0.3.4
+- Make memory usage reading support EKS
+
+# 0.3.3
+- Fix cgroup name parsing
+
 # 0.3.2
 - Publish to hex, no diff in Erlang code
 
