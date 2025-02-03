@@ -36,4 +36,4 @@ xref:
 	rebar3 xref
 
 hex-publish:
-	rebar3 hex publish package
+	rebar3 hex publish --repo=hexpm
