@@ -1,7 +1,20 @@
 %% -*- mode: erlang -*-
-{"0.3.2",
+{"0.3.6",
    [
-     {"0.3.1", [ %% no beam change
+     {"0.3.5", [
+       {load_module, lc_lib, brutal_purge, soft_purge, []}
+     ]},
+     {"0.3.4", [
+       {load_module, lc_lib, brutal_purge, soft_purge, []}
+     ]},
+     {"0.3.3", [
+       {load_module, lc_lib, brutal_purge, soft_purge, []}
+     ]},
+     {"0.3.2", [
+       {load_module, lc_lib, brutal_purge, soft_purge, []}
+     ]},
+     {"0.3.1", [
+       {load_module, lc_lib, brutal_purge, soft_purge, []}
      ]},
      {"0.3.0", [
        {load_module, load_ctl, brutal_purge, soft_purge, []},
@@ -24,7 +37,20 @@
      {<<".*">>, []}
    ],
    [
-     {"0.3.1", [ %% no beam change
+     {"0.3.5", [
+       {load_module, lc_lib, brutal_purge, soft_purge, []}
+     ]},
+     {"0.3.4", [
+       {load_module, lc_lib, brutal_purge, soft_purge, []}
+     ]},
+     {"0.3.3", [
+       {load_module, lc_lib, brutal_purge, soft_purge, []}
+     ]},
+     {"0.3.2", [
+       {load_module, lc_lib, brutal_purge, soft_purge, []}
+     ]},
+     {"0.3.1", [
+       {load_module, lc_lib, brutal_purge, soft_purge, []}
      ]},
      {"0.3.0", [
        {load_module, load_ctl, brutal_purge, soft_purge, []},

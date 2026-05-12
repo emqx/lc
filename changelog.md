@@ -1,3 +1,6 @@
+# 0.3.6
+- Prefer cgroup/cgroup2 memory readings over host `/proc/meminfo`. In containers, the host view could report >70% while the cgroup limit (what actually constrains the process) is <10%, or vice versa; `lists:max` over the three readings picked the misleading one.
+
 # 0.3.5
 - Fix vsn in app.src
 

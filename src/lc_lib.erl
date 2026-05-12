@@ -34,11 +34,24 @@
 get_sys_memory() ->
   case os:type() of
     {unix, linux} ->
-          lists:max([do_get_sys_memory_usage(),
-                     do_get_cgroup_memory_usage(),
-                     do_get_cgroup2_memory_usage()]);
+          %% Prefer cgroup readings over host /proc/meminfo: in a container,
+          %% the host view can show high usage while the cgroup limit (what
+          %% actually constrains this process) is far from full, or vice versa.
+          %% cgroup2 takes priority over cgroup v1; fall back to sys when
+          %% neither cgroup interface is available.
+          first_valid([fun do_get_cgroup2_memory_usage/0,
+                       fun do_get_cgroup_memory_usage/0,
+                       fun do_get_sys_memory_usage/0]);
       _ ->
           do_get_sys_memory_usage()
+  end.
+
+first_valid([F]) ->
+  F();
+first_valid([F | Rest]) ->
+  case F() of
+    {0, 0} -> first_valid(Rest);
+    Result -> Result
   end.
 
 %% @doc Return RAM usage ratio (from 0 to 1).
@@ -104,8 +117,7 @@ get_cgroup_memory_usage() ->
 do_get_cgroup_memory_usage() ->
   try
     CgroupMem = "/sys/fs/cgroup/memory",
-    Paths = [filename:join([CgroupMem, get_cgroup_path(<<"memory">>)]),
-             CgroupMem],
+    Paths = [filename:join([CgroupMem, get_cgroup_path(<<"memory">>)]), CgroupMem],
     CgroupPath = first_existing(Paths),
     CgroupUsed = read_int_fs(filename:join([CgroupPath, "memory.usage_in_bytes"])),
     CgroupTotal = read_int_fs(filename:join([CgroupPath, "memory.limit_in_bytes"])),
@@ -130,8 +142,7 @@ get_cgroup2_memory_usage() ->
 do_get_cgroup2_memory_usage() ->
   try
     Cgroup = "/sys/fs/cgroup",
-    Paths = [filename:join(Cgroup, get_cgroup_path(<<>>)),
-             Cgroup],
+    Paths = [filename:join(Cgroup, get_cgroup_path(<<>>)), Cgroup],
     CgroupPath = first_existing(Paths),
     CgroupUsed = read_int_fs(filename:join([CgroupPath,
                                             "memory.current"])
