@@ -34,25 +34,33 @@
 get_sys_memory() ->
   case os:type() of
     {unix, linux} ->
-          %% Prefer cgroup readings over host /proc/meminfo: in a container,
-          %% the host view can show high usage while the cgroup limit (what
-          %% actually constrains this process) is far from full, or vice versa.
-          %% cgroup2 takes priority over cgroup v1; fall back to sys when
-          %% neither cgroup interface is available.
-          first_valid([fun do_get_cgroup2_memory_usage/0,
-                       fun do_get_cgroup_memory_usage/0,
-                       fun do_get_sys_memory_usage/0]);
+          %% Read all three sources and pick the most constraining: smallest
+          %% non-zero total wins; ties go to the larger usage ratio.
+          %%
+          %% On hosts where cgroup is mounted but no memory limit is applied,
+          %% cgroup v1 reports a sentinel limit (~8 EiB) for memory.limit_in_bytes,
+          %% which dwarfs the actual physical memory and drives the ratio to ~0.
+          %% (cgroup v2 reports the string "max" in that case, which already
+          %% yields {0, 0} via read_int_fs/1.) The smallest non-zero total is
+          %% always the binding limit: a real cgroup cap is at most node memory,
+          %% and an unlimited cgroup's sentinel is far larger than node memory.
+          pick_most_constraining([do_get_cgroup2_memory_usage(),
+                                  do_get_cgroup_memory_usage(),
+                                  do_get_sys_memory_usage()]);
       _ ->
           do_get_sys_memory_usage()
   end.
 
-first_valid([F]) ->
-  F();
-first_valid([F | Rest]) ->
-  case F() of
-    {0, 0} -> first_valid(Rest);
-    Result -> Result
+pick_most_constraining(Readings) ->
+  case [R || {_, Total} = R <- Readings, Total > 0] of
+    [] -> {0, 0};
+    [First | Rest] -> lists:foldl(fun pick_reading/2, First, Rest)
   end.
+
+pick_reading({_, T1} = A, {_, T2}) when T1 < T2 -> A;
+pick_reading({_, T1}, {_, T2} = B) when T1 > T2 -> B;
+pick_reading({R1, _} = A, {R2, _}) when R1 >= R2 -> A;
+pick_reading(_, B) -> B.
 
 %% @doc Return RAM usage ratio (from 0 to 1).
 %% `0' probably indicates an error in collecting the stats.
@@ -198,5 +206,29 @@ get_cgroup_by_name_test_() ->
   [?_assertEqual(<<"kubepods.slice/kubepods-pod47f7b13a_7b34_454d_81cd_9f06cf68ffd3.slice/cri-containerd-261ebed2f68c8399165b5ed5d6ecb26cd470722f05429dc96915d373ceb3a1f1.scope">>,
                  get_cgroup_by_name(In1, <<"memory">>)),
    ?_assertEqual([], get_cgroup_by_name(In2, <<"memory">>))
+  ].
+
+pick_most_constraining_test_() ->
+  %% cgroup v1 sentinel for "no limit set"
+  CgV1Unlimited = 9223372036854771712,
+  HostTotal = 32 * 1024 * 1024 * 1024,
+  CgLimit = 4 * 1024 * 1024 * 1024,
+  [
+   %% all sources failed
+   ?_assertEqual({0, 0}, pick_most_constraining([{0, 0}, {0, 0}, {0, 0}])),
+   %% cgroup unlimited (sentinel total) -> host wins as the smallest real total
+   ?_assertEqual({0.5, HostTotal},
+                 pick_most_constraining([{0, 0},
+                                         {0.0001, CgV1Unlimited},
+                                         {0.5, HostTotal}])),
+   %% cgroup limit set below host total -> cgroup is the binding limit
+   ?_assertEqual({0.9, CgLimit},
+                 pick_most_constraining([{0, 0},
+                                         {0.9, CgLimit},
+                                         {0.3, HostTotal}])),
+   %% same total -> larger usage wins (defensive tie-break)
+   ?_assertEqual({0.8, HostTotal},
+                 pick_most_constraining([{0.2, HostTotal},
+                                         {0.8, HostTotal}]))
   ].
 -endif.

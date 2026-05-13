@@ -1,6 +1,9 @@
 %% -*- mode: erlang -*-
-{"0.3.6",
+{"0.3.7",
    [
+     {"0.3.6", [
+       {load_module, lc_lib, brutal_purge, soft_purge, []}
+     ]},
      {"0.3.5", [
        {load_module, lc_lib, brutal_purge, soft_purge, []}
      ]},
@@ -37,6 +40,9 @@
      {<<".*">>, []}
    ],
    [
+     {"0.3.6", [
+       {load_module, lc_lib, brutal_purge, soft_purge, []}
+     ]},
      {"0.3.5", [
        {load_module, lc_lib, brutal_purge, soft_purge, []}
      ]},

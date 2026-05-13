@@ -1,3 +1,6 @@
+# 0.3.7
+- Fix cgroup v1 readings on hosts where cgroup is mounted but no memory limit is set: `memory.limit_in_bytes` reports a sentinel value (~8 EiB) which made the usage ratio collapse to ~0. The three readings (cgroup2, cgroup v1, sys) are now combined by picking the most constraining: smallest non-zero total wins, with the larger usage ratio breaking ties.
+
 # 0.3.6
 - Prefer cgroup/cgroup2 memory readings over host `/proc/meminfo`. In containers, the host view could report >70% while the cgroup limit (what actually constrains the process) is <10%, or vice versa; `lists:max` over the three readings picked the misleading one.
 
